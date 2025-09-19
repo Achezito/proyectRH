@@ -1,5 +1,6 @@
 from flask import Flask, jsonify
 import random
+from supabase import Client, create_client
 def create_app():
     app = Flask(__name__)
 
