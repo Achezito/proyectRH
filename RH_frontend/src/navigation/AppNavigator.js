@@ -4,6 +4,7 @@ import { createNativeStackNavigator } from "@react-navigation/native-stack";
 import LoginScreen from "../components/login";
 import RegisterScreen from "../components/register";
 import HomeScreen from "../screens/docente/HomeScreen";
+import AdminHomeScreen from "../screens/administrador/HomeScreen";
 import { AuthContext } from "../context/AuthContext";
 
 const Stack = createNativeStackNavigator();
@@ -14,14 +15,18 @@ export default function AppNavigator() {
   return (
     <NavigationContainer>
       <Stack.Navigator>
-        {user ? (
-          <Stack.Screen name="Home" component={HomeScreen} />
-        ) : (
-          <>
-            <Stack.Screen name="Login" component={LoginScreen} />
-            <Stack.Screen name="Register" component={RegisterScreen} />
-          </>
-        )}
+    {user ? (
+  user.rol === 1 ? (
+    <Stack.Screen name="AdminHome" component={AdminHomeScreen} />
+  ) : (
+    <Stack.Screen name="Home" component={HomeScreen} />
+  )
+) : (
+  <>
+    <Stack.Screen name="Login" component={LoginScreen} />
+    <Stack.Screen name="Register" component={RegisterScreen} />
+  </>
+)}
       </Stack.Navigator>
     </NavigationContainer>
   );

@@ -45,12 +45,18 @@ def login():
         })
         user = session_response.user
         session = session_response.session
+        user_id = user.id
 
+
+
+        rol_data = supabase.table("USER_ROL").select("rol_id").eq("user_id",user_id).execute()
+        rol_id = rol_data.data[0]["rol_id"] if rol_data.data else None
         # Devuelve info del usuario y token si es exitoso
         return jsonify({
             "user": {
                 "id": user.id,
-                "email": user.email
+                "email": user.email,
+                "rol": rol_id
             },
             "access_token": session.access_token,
             "refresh_token": session.refresh_token

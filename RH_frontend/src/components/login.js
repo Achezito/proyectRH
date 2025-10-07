@@ -21,6 +21,7 @@ export default function LoginScreen({ navigation }) {
 
       console.log("Respuesta fetch:", res); // 🔹 ver status y headers
       const data = await res.json();
+      setUser(data.user);
       console.log("Datos recibidos del backend:", data);
 
       if (!res.ok) throw new Error(data.error || "Error desconocido");
