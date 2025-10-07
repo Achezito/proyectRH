@@ -1,8 +1,10 @@
 
 from .extensions import supabase 
 from flask import Flask
+from flask_cors import CORS
 def create_app():
     app = Flask(__name__)
+    CORS(app, resources={r"/*": {"origins": "*"}})
     app.config.from_object("app.config.Config")
     # Importar rutas
     
@@ -14,6 +16,6 @@ def create_app():
     
     
     from .routes.docente import docente_bp
-    app.register_blueprint(docente_bp, url_prefix="/admin")
+    app.register_blueprint(docente_bp, url_prefix="/docente")
 
     return app

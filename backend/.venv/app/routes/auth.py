@@ -5,19 +5,18 @@ auth_bp = Blueprint("auth", __name__)
 
 @auth_bp.route("/register", methods=["POST"])
 def register():
-    data = request.json
+    data = request.get_json()
+    print("Datos recibidos:", data)
+
     email = data.get("email")
     password = data.get("password")
-    rol_id = data.get("rol_id",2)
+    rol_id = data.get("rol_id", 2)
 
     try:
-        # Intentar registrar usuario
         user_response = supabase.auth.sign_up({"email": email, "password": password})
-        
-        # user_response.user contiene la info del usuario
-        user_id = user_response.user.id
+        print("Respuesta Supabase:", user_response)
 
-        # Insertar rol en la tabla
+        user_id = user_response.user.id
         supabase.table("USER_ROL").insert({
             "user_id": user_id,
             "rol_id": rol_id
@@ -26,8 +25,12 @@ def register():
         return jsonify({"message": "Usuario registrado correctamente"}), 201
 
     except Exception as e:
-        # Captura cualquier error de Supabase y envíalo en JSON
+        msg = str(e)
+        if "User already registered":
+            return jsonify({"message": "El correo ya está registrado"}), 400
+        print("Error en registro:", e)
         return jsonify({"error": str(e)}), 400
+
 
 @auth_bp.route("/login", methods=["POST"])
 def login():

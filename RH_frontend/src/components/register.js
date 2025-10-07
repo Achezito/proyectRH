@@ -8,8 +8,12 @@ export default function RegisterScreen({ navigation }) {
   const [error, setError] = useState("");
 
   const handleRegister = async () => {
+    if (!email.trim() || !password.trim()){
+      setError("Porfavor, completa todos los campos.")
+      return;
+    }
     try {
-      const response = await fetch("http://10.194.1.108:5000/auth/register", {
+      const response = await fetch("http://localhost:5000/auth/register", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ email, password }),

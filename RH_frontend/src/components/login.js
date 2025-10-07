@@ -13,7 +13,7 @@ export default function LoginScreen({ navigation }) {
     setError("");
 
     try {
-      const res = await fetch("http://10.194.1.108:5000/auth/login", {
+      const res = await fetch("http://localhost:5000/auth/login", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ email, password }),
