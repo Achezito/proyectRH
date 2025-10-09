@@ -38,7 +38,7 @@ export default function StatusDistribution() {
           legendFontColor: item.legendFontColor,
           legendFontSize: item.legendFontSize,
         }))}
-        width={Dimensions.get("window").width - 40}
+        width={Dimensions.get("window").width - 1500}
         height={250}
         chartConfig={{
           color: (opacity = 1) => `rgba(0, 0, 0, ${opacity})`,
@@ -61,7 +61,7 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.1,
     shadowOffset: { width: 0, height: 2 },
     shadowRadius: 6,
-    margin: 16,
+    margin: 0,
     padding: 16,
   },
   title: {

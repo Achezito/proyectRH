@@ -1,11 +1,12 @@
 import React from "react";
-import { View, Text, ScrollView, StyleSheet, Flatlist } from "react-native";
+import { View, Text, ScrollView, StyleSheet, FlatList } from "react-native";
 import { AlertCircle, Users, Calendar, TrendingUp } from "lucide-react-native";
 import DashboardChart from "../../components/dashboard-chart";
 import StatusDistribution from "../../components/status-distribution";
 import Header from "../../components/header";
 import { Sidebar } from "../../components/sidebar";
 import { SafeAreaView } from "react-native-safe-area-context";
+
 export default function DashboardPage() {
   const stats = [
     {
@@ -119,12 +120,12 @@ export default function DashboardPage() {
               ))}
             </View>
 
-            {/* Charts Section */}
+            {/* Charts Section - MODIFICADO */}
             <View style={styles.chartsSection}>
-              <View style={styles.chartContainer}>
+              <View style={styles.barChartContainer}>
                 <DashboardChart />
               </View>
-              <View style={styles.chartContainer}>
+              <View style={styles.pieChartContainer}>
                 <StatusDistribution />
               </View>
             </View>
@@ -308,15 +309,20 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: "500",
   },
+  // Charts Section - MODIFICADO
   chartsSection: {
     flexDirection: "row",
-    flexWrap: "wrap",
     justifyContent: "space-between",
     marginBottom: 24,
+    gap: 80,
   },
-  chartContainer: {
-    width: "48%",
-    marginBottom: 12,
+  barChartContainer: {
+    flex: 2, // Ocupa 2 partes del espacio disponible
+    minHeight: 300,
+  },
+  pieChartContainer: {
+    flex: 2, // Ocupa 1 parte del espacio disponible
+    minHeight: 300,
   },
   listsSection: {
     flexDirection: "row",

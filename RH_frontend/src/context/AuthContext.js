@@ -1,29 +1,24 @@
-import React, { createContext, useState, useEffect} from 'react';
-import {supabase} from '../../supabaseClient';
+import React, { createContext, useContext, useState } from 'react';
 
+// Crear el contexto
 export const AuthContext = createContext();
 
-
+// Proveedor del contexto
 export const AuthProvider = ({ children }) => {
-    const [user, setUser] = useState(null);
+  const [user, setUser] = useState(null);
 
-    useEffect(() => {
-        const session = supabase.auth.getSession();
-        session.then(({data}) => {
-            setUser(data?.session?.user || null );
-        });
-    const { data: listener} = supabase.auth.onAuthStateChange((_event,session) => {
-        setUser(session?.user || null);
-    });
+  return (
+    <AuthContext.Provider value={{ user, setUser }}>
+      {children}
+    </AuthContext.Provider>
+  );
+};
 
-    return () => {
-        listener.subcription.unsubscribe();
-    };
-   }, []);
-   return (
-    <AuthContext.Provider value= {{user, setUser}}>
-        {children}
-        </AuthContext.Provider>
-
-   );
+// Hook personalizado
+export const useAuth = () => {
+  const context = useContext(AuthContext);
+  if (!context) {
+    throw new Error('useAuth debe ser usado dentro de un AuthProvider');
+  }
+  return context;
 };

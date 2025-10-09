@@ -15,18 +15,34 @@ export default function AppNavigator() {
   return (
     <NavigationContainer>
       <Stack.Navigator>
-    {user ? (
-  user.rol === 1 ? (
-    <Stack.Screen name="AdminHome" component={AdminHomeScreen} />
-  ) : (
-    <Stack.Screen name="Home" component={HomeScreen} />
-  )
-) : (
-  <>
-    <Stack.Screen name="Login" component={LoginScreen} />
-    <Stack.Screen name="Register" component={RegisterScreen} />
-  </>
-)}
+        {user ? (
+          user.rol === 1 ? (
+            <Stack.Screen 
+              name="AdminHome" 
+              component={AdminHomeScreen} 
+              options={{ headerShown: false }}
+            />
+          ) : (
+            <Stack.Screen 
+              name="Home" 
+              component={HomeScreen} 
+              options={{ headerShown: false }}
+            />
+          )
+        ) : (
+          <>
+            <Stack.Screen 
+              name="Login" 
+              component={LoginScreen} 
+              options={{ headerShown: false }}
+            />
+            <Stack.Screen 
+              name="Register" 
+              component={RegisterScreen} 
+              options={{ headerShown: false }}
+            />
+          </>
+        )}
       </Stack.Navigator>
     </NavigationContainer>
   );
