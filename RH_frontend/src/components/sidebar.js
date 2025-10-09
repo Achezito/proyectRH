@@ -1,5 +1,11 @@
 import React from "react";
-import { View, Text, TouchableOpacity, StyleSheet, ScrollView } from "react-native";
+import {
+  View,
+  Text,
+  TouchableOpacity,
+  StyleSheet,
+  ScrollView,
+} from "react-native";
 import { useNavigation, useRoute } from "@react-navigation/native";
 import {
   LayoutDashboard,
@@ -11,7 +17,6 @@ import {
   Settings,
 } from "lucide-react-native";
 
-
 const navigationItems = [
   { name: "Dashboard", route: "Dashboard", icon: LayoutDashboard },
   { name: "Incidencias", route: "Incidencias", icon: AlertCircle },
@@ -22,48 +27,44 @@ const navigationItems = [
   { name: "Configuración", route: "Configuracion", icon: Settings },
 ];
 
-export function Sidebar(){
+export function Sidebar() {
   const navigation = useNavigation();
   const route = useRoute();
 
-  return(
+  return (
     <View style={styles.container}>
-        <View style={styles.header}>
-            <Text style={styles.title}>Sistema RH</Text>
-    </View>
-    <ScrollView style={styles.nav}>
+      <View style={styles.header}>
+        <Text style={styles.title}>Sistema RH</Text>
+      </View>
+      <ScrollView style={styles.nav}>
         {navigationItems.map((item) => {
-            const Icon = item.icon;
-            const isActive = route.name === item.route;
-            return (
-                <TouchableOpacity
-                 key={item.name}
-                 style={[styles.link, isActive && styles.activeLink]}
-                 onPress={() => navigation.navigate(item.route)}
-               > 
-               <Icon color={isActive ? "#fff" : "#555"} size= {20} />
-               <Text style = {[styles.linkText, isActive && styles.activeText]}>
+          const Icon = item.icon;
+          const isActive = route.name === item.route;
+          return (
+            <TouchableOpacity
+              key={item.name}
+              style={[styles.link, isActive && styles.activeLink]}
+              onPress={() => navigation.navigate(item.route)}
+            >
+              <Icon color={isActive ? "#fff" : "#555"} size={20} />
+              <Text style={[styles.linkText, isActive && styles.activeText]}>
                 {item.name}
-               </Text>
-                </TouchableOpacity>
-            );
-
+              </Text>
+            </TouchableOpacity>
+          );
         })}
-    </ScrollView>
-    <View style={styles.footer}>
+      </ScrollView>
+      <View style={styles.footer}>
         <View style={styles.avatar}>
-            <Text style={styles.avatarText}>AD</Text>
+          <Text style={styles.avatarText}>AD</Text>
         </View>
         <View>
-            <Text style= {styles.footerName}>Administrador</Text>
-            <Text style={styles.footerEmail}>admin@rh.com</Text>
-        </View> 
+          <Text style={styles.footerName}>Administrador</Text>
+          <Text style={styles.footerEmail}>admin@rh.com</Text>
         </View>
-        </View>
-
+      </View>
+    </View>
   );
-  
-
 }
 const styles = StyleSheet.create({
   container: {
