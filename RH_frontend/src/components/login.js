@@ -11,47 +11,61 @@ import {
 } from "react-native";
 import { useNavigation } from "@react-navigation/native";
 import { Building2, AlertCircle } from "lucide-react-native";
-import { AuthContext } from "../context/AuthContext"; // Importa el contexto
+import { AuthContext, useAuth } from "../context/AuthContext"; // Importa el contexto
 
 export default function LoginPage() {
   const navigation = useNavigation();
-  const { setUser } = useContext(AuthContext); // Usa useContext directamente
+  const { setUser } = useAuth(); // Usa useContext directamente
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const [isLoading, setIsLoading] = useState(false);
 
-  const handleLogin = async () => {
-    setError("");
-    setIsLoading(true);
+const handleLogin = async () => {
+  setError("");
+  setIsLoading(true);
 
-    console.log("Intentando login con:", email);
+  console.log("Intentando login con:", email);
 
-    try {
-      const res = await fetch("http://localhost:5000/auth/login", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email, password }),
-      });
+  try {
+    const res = await fetch("http://localhost:5000/auth/login", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ email, password }),
+    });
 
-      console.log("Respuesta fetch:", res.status);
-      const data = await res.json();
+    console.log("Respuesta fetch:", res.status);
+    const data = await res.json();
 
-      if (!res.ok) {
-        throw new Error(data.error || "Error desconocido");
+    if (!res.ok) {
+      // Manejar errores específicos de estado de cuenta
+      if (res.status === 403) {
+        if (data.error.includes("pendiente")) {
+          // Redirigir a pantalla de pending-approval
+          navigation.navigate("pending-approval");
+          return;
+        } else if (data.error.includes("rechazada")) {
+          // Redirigir a pantalla de rejected
+          navigation.navigate("Rejected");
+          return;
+        }
       }
-
-      console.log("Login exitoso:", data.user);
-      setUser(data.user);
-      // Navegar al dashboard/main screen
-      navigation.navigate("Dashboard");
-    } catch (err) {
-      console.error("Error en login:", err);
-      setError(err instanceof Error ? err.message : "Error al conectar con el servidor");
-    } finally {
-      setIsLoading(false);
+      throw new Error(data.error || "Error desconocido");
     }
-  };
+
+    console.log("Login exitoso:", data.user);
+    // COMENTA ESTAS DOS LÍNEAS:
+    // setUser(data.user);
+    // navigation.navigate("Home");
+    
+    // El AuthContext detectará automáticamente el login y redirigirá
+  } catch (err) {
+    console.error("Error en login:", err);
+    setError(err instanceof Error ? err.message : "Error al conectar con el servidor");
+  } finally {
+    setIsLoading(false);
+  }
+};
 
   const handleSubmit = () => {
     if (!email || !password) {

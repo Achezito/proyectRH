@@ -41,36 +41,36 @@ export default function RegisterPage() {
 
     setIsLoading(true);
 
-    try {
-      const response = await fetch("http://localhost:5000/auth/register", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email, password }),
-      });
+   try {
+    const response = await fetch("http://localhost:5000/auth/register", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ email, password }),
+    });
 
-      const data = await response.json();
+    const data = await response.json();
 
-      if (response.ok) {
-        Alert.alert(
-          "Registro exitoso",
-          "Ahora puedes iniciar sesión.",
-          [
-            {
-              text: "OK",
-              onPress: () => navigation.navigate("Login"),
-            },
-          ]
-        );
-      } else {
-        setError(data.message || "Error en el registro");
-      }
-    } catch (err) {
-      console.error("Error en registro:", err);
-      setError("Error al conectar con el servidor");
-    } finally {
-      setIsLoading(false);
+    if (response.ok) {
+      Alert.alert(
+        "Registro exitoso",
+        "Tu cuenta está pendiente de aprobación del administrador.",
+        [
+          {
+            text: "OK",
+            onPress: () => navigation.navigate("Login"),
+          },
+        ]
+      );
+    } else {
+      setError(data.message || "Error en el registro");
     }
-  };
+  } catch (err) {
+    console.error("Error en registro:", err);
+    setError("Error al conectar con el servidor");
+  } finally {
+    setIsLoading(false);
+  }
+};
 
   const handleSubmit = () => {
     handleRegister();

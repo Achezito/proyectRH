@@ -1,13 +1,11 @@
-import React, { useState } from "react";
-import { AuthContext } from "./src/context/AuthContext";
+import React from "react";
+import { AuthProvider } from "./src/context/AuthContext"; // Importa el Provider complejo
 import AppNavigator from "./src/navigation/AppNavigator";
 
 export default function App() {
-  const [user, setUser] = useState(null);
-
   return (
-    <AuthContext.Provider value={{ user, setUser }}>
+    <AuthProvider>  {/* ← Usa el Provider complejo */}
       <AppNavigator />
-    </AuthContext.Provider>
+    </AuthProvider>
   );
 }
