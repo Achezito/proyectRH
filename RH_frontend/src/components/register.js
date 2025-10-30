@@ -13,6 +13,7 @@ import {
 import { useNavigation } from "@react-navigation/native";
 import { Building2, AlertCircle, CheckCircle2 } from "lucide-react-native";
 
+
 export default function RegisterPage() {
   const navigation = useNavigation();
   const [email, setEmail] = useState("");
@@ -20,6 +21,9 @@ export default function RegisterPage() {
   const [confirmPassword, setConfirmPassword] = useState("");
   const [error, setError] = useState("");
   const [isLoading, setIsLoading] = useState(false);
+
+  const [successMessage, setSuccessMessage] = useState("");
+
 
   const handleRegister = async () => {
     setError("");
@@ -42,7 +46,7 @@ export default function RegisterPage() {
     setIsLoading(true);
 
    try {
-    const response = await fetch("http://localhost:5000/auth/register", {
+    const response = await fetch("http://192.168.1.84:5000/auth/register", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ email, password }),
@@ -51,16 +55,13 @@ export default function RegisterPage() {
     const data = await response.json();
 
     if (response.ok) {
-      Alert.alert(
-        "Registro exitoso",
-        "Tu cuenta está pendiente de aprobación del administrador.",
-        [
-          {
-            text: "OK",
-            onPress: () => navigation.navigate("Login"),
-          },
-        ]
-      );
+     setSuccessMessage("Tu cuenta ha sido creada correctamente. Un administrador revisará tu solicitud.");
+     setTimeout(() => {
+  navigation.navigate("Login");
+}, 3000); // espera 3 segundos antes de redirigir
+
+
+
     } else {
       setError(data.message || "Error en el registro");
     }
@@ -93,6 +94,12 @@ export default function RegisterPage() {
               Crea una cuenta para acceder al sistema
             </Text>
           </View>
+{successMessage ? (
+  <View style={styles.success}>
+    <CheckCircle2 size={16} color="#059669" />
+    <Text style={styles.successText}>{successMessage}</Text>
+  </View>
+) : null}
 
           {/* Form */}
           <View style={styles.cardContent}>

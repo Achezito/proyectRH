@@ -64,17 +64,15 @@ def login():
     password = data.get("password")
 
     try:
-        # ESTO crea una sesión REAL de Supabase
         session_response = supabase.auth.sign_in_with_password({
             "email": email,
             "password": password
         })
         
-        # Obtener rol del usuario
         rol_data = supabase.table("USER_ROL").select("rol_id").eq("user_id", session_response.user.id).execute()
         rol_id = rol_data.data[0]["rol_id"] if rol_data.data else 2
 
-        # Verificar estado para docentes
+        estado = None
         if rol_id != 1:  # Si no es admin
             docente_data = supabase.table("DOCENTES").select("estado").eq("correo_institucional", email).execute()
             if docente_data.data:
@@ -84,10 +82,14 @@ def login():
                 elif estado == "rejected":
                     return jsonify({"error": "Cuenta rechazada. Contacta al administrador"}), 403
 
-        # Devolver éxito - la sesión ya está creada
         return jsonify({
             "message": "Login exitoso",
-            "session_created": True
+            "session_created": True,
+            "user": {
+                "email": email,
+                "rol_id": rol_id,
+                "estado": estado or "approved"
+            }
         })
 
     except Exception as e:

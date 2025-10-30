@@ -4,7 +4,6 @@ import { supabase } from 'C:/xampp/htdocs/proyectRH/RH_frontend/supabaseClient.j
 // Crear el contexto
 export const AuthContext = createContext();
 
-// Proveedor del contexto
 
 
 export const AuthProvider = ({ children }) => {
@@ -41,10 +40,10 @@ export const AuthProvider = ({ children }) => {
     }
   };
 
-const checkUserStatus = async (authUser) => {
+ const checkUserStatus = async (authUser) => {
   try {
     setLoading(true);
-    
+
     // 1. Obtener perfil del docente
     const { data: docente, error: docenteError } = await supabase
       .from('DOCENTES')
@@ -54,29 +53,30 @@ const checkUserStatus = async (authUser) => {
 
     if (docenteError) throw docenteError;
 
-    // 2. Obtener el rol del usuario
+    // 2. Obtener rol del usuario
     const { data: rolData, error: rolError } = await supabase
       .from('USER_ROL')
       .select('rol_id')
       .eq('user_id', authUser.id)
       .single();
 
-    // 3. Crear objeto de usuario completo con el rol
-    const userWithRole = {
-      ...authUser,
-      rol: rolData?.rol_id || 2, // Default a docente (2) si no encuentra rol
-    };
+    if (rolError) throw rolError;
 
-    setUser(userWithRole); // ← Esto es lo importante
+    // 3. Guardar todo en el contexto
+    setUser({
+      ...authUser,
+      rol_id: rolData.rol_id // ← esto es lo que usas en AppNavigator
+    });
+
     setUserProfile(docente);
     setUserStatus(docente.estado);
-
   } catch (error) {
     console.error('Error checking user status:', error);
   } finally {
     setLoading(false);
   }
 };
+
   const logout = async () => {
     try {
       await supabase.auth.signOut();
@@ -88,16 +88,19 @@ const checkUserStatus = async (authUser) => {
     }
   };
 
-  const value = {
-    user,
-    userProfile,
-    userStatus,
-    loading,
-    logout,
-    isApproved: userStatus === 'approved',
-    isPending: userStatus === 'pending',
-    isRejected: userStatus === 'rejected'
-  };
+ const value = {
+  user,
+  setUser, // ← Asegúrate de incluir esto
+  userProfile,
+  userStatus,
+  setUserStatus, // ← Agrega esto también
+  loading,
+  logout,
+  isApproved: userStatus === 'approved',
+  isPending: userStatus === 'pending',
+  isRejected: userStatus === 'rejected'
+};
+
 
   return (
     <AuthContext.Provider value={value}>

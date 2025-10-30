@@ -18,12 +18,13 @@ import {
 } from "lucide-react-native";
 
 const navigationItems = [
-  { name: "Dashboard", route: "Dashboard", icon: LayoutDashboard },
+  { name: "Dashboard", route: "AdminHome", icon: LayoutDashboard },
   { name: "Incidencias", route: "Incidencias", icon: AlertCircle },
   { name: "Docentes", route: "Docentes", icon: Users },
   { name: "Días Económicos", route: "DiasEconomicos", icon: Calendar },
   { name: "Períodos", route: "Periodos", icon: Clock },
   { name: "Reportes", route: "Reportes", icon: FileText },
+  { name: "Usuarios", route: "Usuarios", icon: Users },
   { name: "Configuración", route: "Configuracion", icon: Settings },
 ];
 
