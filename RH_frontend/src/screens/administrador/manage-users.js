@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import {
   View,
   Text,
@@ -9,15 +9,14 @@ import {
   ActivityIndicator,
   SafeAreaView,
   ScrollView,
+  Modal,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { supabase } from 'C:/xampp/htdocs/proyectRH/RH_frontend/supabaseClient.js';
 import { useAuth } from '../../context/AuthContext';
 import { Sidebar } from '../../components/sidebar';
 import Header from '../../components/header';
-import DocumentPicker from 'react-native-document-picker';
 import Papa from 'papaparse';
-
 
 export default function UsuariosScreen() {
   const { user } = useAuth();
@@ -25,73 +24,38 @@ export default function UsuariosScreen() {
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState('todos');
   const [loading, setLoading] = useState(true);
+  const [modalVisible, setModalVisible] = useState(false);
+  const [resultadosCSV, setResultadosCSV] = useState(null);
+  const fileInputRef = useRef(null);
 
-  const importarDatosDesdeCSV = async () => {
-  try {
-    const file = await DocumentPicker.pickSingle({
-      type: [DocumentPicker.types.plainText],
-    });
+  // 🧾 Subida y procesamiento del CSV
+  const handleCSVUpload = async (event) => {
+    const file = event.target.files[0];
+    const formData = new FormData();
+    formData.append('file', file);
 
-    const contenido = await fetch(file.uri).then((r) => r.text());
-    const { data, errors, meta } = Papa.parse(contenido, {
-      header: true,
-      skipEmptyLines: true,
-    });
+    try {
+      const res = await fetch('http://192.168.1.84:5000/admin/import-docentes', {
+        method: 'POST',
+        body: formData,
+      });
 
-    const columnasEsperadas = ['correo_institucional', 'nombre', 'apellido'];
-    const columnasCSV = meta.fields;
-    const faltantes = columnasEsperadas.filter(c => !columnasCSV.includes(c));
+      const result = await res.json();
 
-    if (faltantes.length > 0) {
-      alert(`Faltan columnas en el CSV: ${faltantes.join(', ')}`);
-      return;
+      setResultadosCSV(result);
+      setModalVisible(true);
+      fetchUsuarios();
+    } catch (err) {
+      console.error('Error al subir CSV:', err);
+      alert('Error al importar el archivo.');
     }
-
-    const { data: docentesDB, error } = await supabase
-      .from('DOCENTES')
-      .select('id, correo_institucional');
-
-    if (error) throw error;
-
-    const mapaDocentes = {};
-    docentesDB.forEach(d => {
-      mapaDocentes[d.correo_institucional.trim().toLowerCase()] = d.id;
-    });
-
-    let actualizados = 0;
-    let noCoinciden = [];
-
-    for (const fila of data) {
-      const correo = fila.correo_institucional?.trim().toLowerCase();
-      const nombre = fila.nombre?.trim();
-      const apellido = fila.apellido?.trim();
-
-      const id = mapaDocentes[correo];
-      if (id && (nombre || apellido)) {
-        await supabase
-          .from('DOCENTES')
-          .update({ nombre, apellido })
-          .eq('id', id);
-        actualizados++;
-      } else {
-        noCoinciden.push(correo);
-      }
-    }
-
-    alert(`Actualizados: ${actualizados}\nNo encontrados: ${noCoinciden.length}`);
-    fetchUsuarios();
-  } catch (err) {
-    console.error("Error al importar:", err);
-    alert("Hubo un error al procesar el archivo.");
-  }
-};
-
+  };
 
   const fetchUsuarios = async () => {
     setLoading(true);
     const { data, error } = await supabase
       .from('DOCENTES')
-      .select('id, nombre, correo_institucional, estado');
+      .select('id, nombre, correo_institucional, estado, docencia, cumpleaños');
     if (!error) setUsuarios(data || []);
     setLoading(false);
   };
@@ -145,10 +109,6 @@ export default function UsuariosScreen() {
       u.correo_institucional?.toLowerCase().includes(searchTerm.toLowerCase());
     const matchStatus = statusFilter === 'todos' || u.estado === statusFilter;
     return matchSearch && matchStatus;
-
-
-
-    
   });
 
   const pendingCount = usuarios.filter((u) => u.estado === 'pendiente').length;
@@ -176,6 +136,7 @@ export default function UsuariosScreen() {
               onChangeText={setSearchTerm}
             />
 
+            {/* 📊 Filtros */}
             <View style={styles.filterRow}>
               {['todos', 'pendiente', 'aprobado', 'rechazado'].map((estado) => (
                 <TouchableOpacity
@@ -198,6 +159,7 @@ export default function UsuariosScreen() {
               ))}
             </View>
 
+            {/* 🧮 Resumen */}
             <View style={styles.summaryRow}>
               <View style={[styles.summaryCard, { borderColor: '#facc15' }]}>
                 <Text style={styles.summaryTitle}>Pendientes</Text>
@@ -213,15 +175,32 @@ export default function UsuariosScreen() {
               </View>
             </View>
 
+            {/* 📥 Botón Importar CSV */}
+            <TouchableOpacity
+              style={styles.importButton}
+              onPress={() => fileInputRef.current?.click()}
+            >
+              <Ionicons name="cloud-upload-outline" size={20} color="#fff" />
+              <Text style={styles.importText}> Importar CSV de Docentes</Text>
+            </TouchableOpacity>
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept=".csv"
+              style={{ display: 'none' }}
+              onChange={handleCSVUpload}
+            />
+
+            {/* 🧾 Tabla */}
             <View style={styles.tableHeader}>
               <Text style={[styles.headerText, { flex: 2 }]}>Nombre</Text>
+              <Text style={[styles.headerText, { flex: 2 }]}>Apellido</Text>
+              <Text style={[styles.headerText, { flex: 2 }]}>Docencia</Text>
               <Text style={[styles.headerText, { flex: 3 }]}>Correo</Text>
+              <Text style={[styles.headerText, { flex: 3 }]}>Cumpleaños</Text>
               <Text style={[styles.headerText, { flex: 1 }]}>Estado</Text>
               <Text style={[styles.headerText, { flex: 1 }]}>Acciones</Text>
             </View>
-            <TouchableOpacity style={styles.importButton} onPress={importarDatosDesdeCSV}>
-  <Text style={styles.importText}>Importar datos desde CSV</Text>
-</TouchableOpacity>
 
             {loading ? (
               <ActivityIndicator size="large" color="#ef4444" />
@@ -232,7 +211,10 @@ export default function UsuariosScreen() {
                 renderItem={({ item }) => (
                   <View style={styles.cardRow}>
                     <Text style={[styles.cellText, { flex: 2 }]}>{item.nombre}</Text>
+                    <Text style={[styles.cellText, { flex: 2 }]}>{item.apellido}</Text>
+                    <Text style={[styles.cellText, { flex: 2 }]}>{item.docencia}</Text>
                     <Text style={[styles.cellText, { flex: 3 }]}>{item.correo_institucional}</Text>
+                    <Text style={[styles.cellText, { flex: 3 }]}>{item.cumpleaños}</Text>
                     <View style={[styles.cellText, { flex: 1 }]}>{getStatusBadge(item.estado)}</View>
                     <View style={[styles.actions, { flex: 1 }]}>
                       {item.estado === 'pending' && (
@@ -246,28 +228,57 @@ export default function UsuariosScreen() {
                         </>
                       )}
                     </View>
-     
-
                   </View>
-                  
                 )}
-                
               />
-              
             )}
           </ScrollView>
         </View>
       </View>
+
+      {/* 📋 Modal con resultados del CSV */}
+      <Modal visible={modalVisible} animationType="slide" transparent>
+        <View style={styles.modalBackground}>
+          <View style={styles.modalBox}>
+            <Text style={styles.modalTitle}>Resultado de la Importación</Text>
+            {resultadosCSV ? (
+              <>
+                <Text style={styles.modalSubtitle}>✅ Actualizados:</Text>
+                {Array.isArray(resultadosCSV.actualizados) && resultadosCSV.actualizados.length > 0 ? (
+                  resultadosCSV.actualizados.map((u, i) => (
+                    <Text key={i} style={styles.modalItem}>• {u}</Text>
+                  ))
+                ) : (
+                  <Text style={styles.modalItem}>Ninguno</Text>
+                )}
+
+                <Text style={[styles.modalSubtitle, { marginTop: 8 }]}>⚠️ No encontrados:</Text>
+                {Array.isArray(resultadosCSV.no_encontrados) && resultadosCSV.no_encontrados.length > 0 ? (
+                  resultadosCSV.no_encontrados.map((u, i) => (
+                    <Text key={i} style={styles.modalItem}>• {u}</Text>
+                  ))
+                ) : (
+                  <Text style={styles.modalItem}>Ninguno</Text>
+                )}
+              </>
+            ) : (
+              <ActivityIndicator size="large" color="#ef4444" />
+            )}
+            <TouchableOpacity style={styles.closeButton} onPress={() => setModalVisible(false)}>
+              <Text style={styles.closeText}>Cerrar</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
     </SafeAreaView>
   );
 }
+
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#fff' },
   mainWrapper: { flexDirection: 'row', flex: 1 },
   contentWrapper: { flex: 1, padding: 16 },
-  scrollView: { flex: 1 },
   scrollContent: { paddingBottom: 32 },
-  headerSection: { marginBottom: 16 },
   title: { fontSize: 24, fontWeight: 'bold', marginBottom: 4 },
   subtitle: { fontSize: 14, color: '#6b7280' },
   input: {
@@ -291,17 +302,8 @@ const styles = StyleSheet.create({
     marginHorizontal: 4,
     alignItems: 'center',
   },
-  summaryTitle: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: '#374151',
-    marginBottom: 4,
-  },
-  summaryCount: {
-    fontSize: 20,
-    fontWeight: 'bold',
-    color: '#111827',
-  },
+  summaryTitle: { fontSize: 14, fontWeight: '600', color: '#374151', marginBottom: 4 },
+  summaryCount: { fontSize: 20, fontWeight: 'bold', color: '#111827' },
   tableHeader: {
     flexDirection: 'row',
     paddingVertical: 8,
@@ -309,18 +311,14 @@ const styles = StyleSheet.create({
     borderColor: '#ccc',
     marginBottom: 8,
   },
-   badge: {
+  badge: {
     alignSelf: 'flex-start',
     paddingHorizontal: 8,
     paddingVertical: 4,
     borderRadius: 12,
     marginBottom: 4,
   },
-  badgeText: {
-    color: '#fff',
-    fontWeight: '600',
-    fontSize: 12,
-  },
+  badgeText: { color: '#fff', fontWeight: '600', fontSize: 12 },
   cardRow: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -328,25 +326,41 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
     borderColor: '#eee',
   },
-  cellText: {
-    fontSize: 14,
-    color: '#111827',
-  },
-  actions: {
+  cellText: { fontSize: 14, color: '#111827' },
+  actions: { flexDirection: 'row', justifyContent: 'space-around' },
+  importButton: {
     flexDirection: 'row',
-    justifyContent: 'space-around',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#2563eb',
+    padding: 10,
+    borderRadius: 8,
+    marginVertical: 12,
   },
- importButton: {
-  backgroundColor: '#2563eb',
-  padding: 10,
-  borderRadius: 8,
-  marginVertical: 12,
-},
+  importText: { color: '#fff', fontWeight: 'bold', marginLeft: 6 },
 
-importText: {
-  color: '#fff',
-  textAlign: 'center',
-  fontWeight: 'bold',
-},
-
+  // 🔵 Modal
+  modalBackground: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.4)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  modalBox: {
+    backgroundColor: '#fff',
+    width: '80%',
+    borderRadius: 12,
+    padding: 20,
+    elevation: 5,
+  },
+  modalTitle: { fontSize: 20, fontWeight: 'bold', marginBottom: 10, textAlign: 'center' },
+  modalSubtitle: { fontWeight: 'bold', color: '#374151', marginTop: 8 },
+  modalItem: { fontSize: 14, color: '#111827', marginLeft: 8 },
+  closeButton: {
+    backgroundColor: '#ef4444',
+    padding: 10,
+    borderRadius: 8,
+    marginTop: 16,
+  },
+  closeText: { color: '#fff', fontWeight: 'bold', textAlign: 'center' },
 });

@@ -1,6 +1,9 @@
 from flask import Blueprint, jsonify, request
 from datetime import datetime
 from ..extensions import supabase
+import csv
+import io
+import unicodedata
 
 admin_bp = Blueprint("admin", __name__)
 
@@ -104,3 +107,106 @@ def update_user(user_id):
     except Exception as e:
         print("Error actualizando usuario:", e)
         return jsonify({"error": "Error al actualizar usuario"}), 500
+    
+ 
+
+@admin_bp.route("/import-docentes", methods=["POST"])
+def import_docentes():
+    try:
+        file = request.files.get("file")
+        if not file:
+            return jsonify({"error": "No se recibió ningún archivo"}), 400
+
+        print("✅ Archivo recibido:", file.filename)
+
+        # Intentar decodificar el archivo
+        try:
+            content = file.stream.read().decode("utf-8")
+        except UnicodeDecodeError:
+            file.stream.seek(0)
+            content = file.stream.read().decode("latin-1")
+
+        stream = io.StringIO(content)
+        reader = list(csv.DictReader(stream))
+        if not reader:
+            return jsonify({"error": "El archivo CSV está vacío"}), 400
+
+        # Funciones de normalización
+        def normalizar_texto(texto):
+            texto = texto.strip()
+            texto = ''.join(c for c in unicodedata.normalize('NFD', texto) if unicodedata.category(c) != 'Mn')
+            texto = texto.replace('"', '').replace("'", "")
+            return texto.lower()
+
+        def normalizar_correo(correo):
+            return normalizar_texto(correo).replace(" ", "").replace("\n", "").replace("\r", "")
+
+        # Normalizar encabezados
+        encabezados = {normalizar_texto(col): col for col in reader[0].keys()}
+        print("Encabezados normalizados:", list(encabezados.keys()))
+
+        columnas_esperadas = {"correo_institucional", "nombre", "apellido", "cumpleanos", "docencia"}
+        faltantes = columnas_esperadas - set(encabezados.keys())
+        if faltantes:
+            return jsonify({"error": f"Faltan columnas: {', '.join(faltantes)}"}), 400
+
+        # Consultar docentes existentes
+        docentes_db = supabase.table("DOCENTES").select("id, correo_institucional").execute()
+        if not docentes_db.data:
+            raise Exception(f"Error al consultar DOCENTES: {docentes_db.json()}")
+
+        mapa_docentes = {
+            normalizar_correo(d["correo_institucional"]): d["id"]
+            for d in docentes_db.data
+            if d.get("correo_institucional")
+        }
+
+        actualizados = 0
+        no_encontrados = []
+        incompletos = []
+
+        for fila in reader:
+            correo = normalizar_correo(fila.get(encabezados.get("correo_institucional", ""), ""))
+            nombre = fila.get(encabezados.get("nombre", ""), "").strip()
+            apellido = fila.get(encabezados.get("apellido", ""), "").strip()
+            cumpleaños = fila.get(encabezados.get("cumpleanos", ""), "").strip()
+            docencia = fila.get(encabezados.get("docencia", ""), "").strip()
+
+            if not correo or not nombre or not apellido:
+                incompletos.append(correo or "(sin correo)")
+                continue
+
+            docente_id = mapa_docentes.get(correo)
+            print(f"🔍 Procesando: {correo} → {'Actualizado' if docente_id else 'No encontrado'}")
+
+            if docente_id:
+                update_data = {}
+                if nombre:
+                    update_data["nombre"] = nombre
+                if apellido:
+                    update_data["apellido"] = apellido
+                if cumpleaños:
+                    update_data["cumpleaños"] = cumpleaños
+                if docencia:
+                    update_data["docencia"] = docencia
+
+                if update_data:
+                    resp = supabase.table("DOCENTES").update(update_data).eq("id", docente_id).execute()
+                    if resp.data:
+                        actualizados += 1
+                    else:
+                        print(f"⚠️ Fallo al actualizar {correo}: {resp.json()}")
+            else:
+                no_encontrados.append(correo)
+
+        return jsonify({
+            "message": "Importación completada exitosamente",
+            "procesados": len(reader),
+            "actualizados": actualizados,
+            "no_encontrados": no_encontrados,
+            "incompletos": incompletos
+        }), 200
+
+    except Exception as e:
+        traceback.print_exc()
+        return jsonify({"error": str(e)}), 500
