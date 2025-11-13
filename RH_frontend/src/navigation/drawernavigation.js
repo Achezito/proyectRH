@@ -1,9 +1,9 @@
 import React from "react";
 import { createDrawerNavigator } from "@react-navigation/drawer";
-import DashboardScreen from "/dashboardScreen";
-import IncidenciasForm from "/incidenciasForm";
-import CumpleaniosScreen from "/cumpleaniosScreen";
-import DiasEconomicosForm from "/diasEconomicosForm";
+import DashboardScreen from "../screens/DashboardScreen";
+import IncidenciasForm from "../screens/IncidenciasForm";
+import CumpleaniosScreen from "../screens/CumpleaniosScreen";
+import DiasEconomicosForm from "../screens/DiasEconomicosForm";
 
 const Drawer = createDrawerNavigator();
 
