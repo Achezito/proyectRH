@@ -36,10 +36,13 @@ export default function UsuariosScreen() {
     formData.append("file", csvFile);
 
     try {
-      const res = await fetch("http://192.168.1.84:5000/admin/preview-docentes", {
-        method: "POST",
-        body: formData,
-      });
+      const res = await fetch(
+        "http://10.194.1.108:5000/admin/preview-docentes",
+        {
+          method: "POST",
+          body: formData,
+        }
+      );
 
       const data = await res.json();
       if (data.error) throw new Error(data.error);
@@ -59,11 +62,14 @@ export default function UsuariosScreen() {
     if (previewData.length === 0) return alert("No hay datos para confirmar.");
 
     try {
-      const res = await fetch("http://192.168.1.84:5000/admin/confirmar-docentes", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ docentes: previewData }),
-      });
+      const res = await fetch(
+        "http://10.194.1.108:5000/admin/confirmar-docentes",
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ docentes: previewData }),
+        }
+      );
 
       const result = await res.json();
       if (result.error) throw new Error(result.error);
@@ -77,36 +83,37 @@ export default function UsuariosScreen() {
 
   // 📥 Descargar CSV con contraseñas
   const handleDownload = async () => {
-  try {
-    if (previewData.length === 0) {
-      alert("No hay datos para descargar");
-      return;
+    try {
+      if (previewData.length === 0) {
+        alert("No hay datos para descargar");
+        return;
+      }
+
+      const response = await fetch(
+        "http://10.194.1.108:5000/admin/generar-csv-docentes",
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(previewData),
+        }
+      );
+
+      if (!response.ok) throw new Error("No se pudo descargar el CSV");
+
+      // Convertir respuesta a Blob y crear link temporal de descarga
+      const blob = await response.blob();
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = "docentes_contrasenas.csv";
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+    } catch (error) {
+      console.error("Error descargando CSV:", error);
+      alert("Error descargando CSV");
     }
-
-    const response = await fetch("http://192.168.1.84:5000/admin/generar-csv-docentes", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(previewData),
-    });
-
-    if (!response.ok) throw new Error("No se pudo descargar el CSV");
-
-    // Convertir respuesta a Blob y crear link temporal de descarga
-    const blob = await response.blob();
-    const url = window.URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = "docentes_contrasenas.csv";
-    document.body.appendChild(a);
-    a.click();
-    a.remove();
-
-  } catch (error) {
-    console.error("Error descargando CSV:", error);
-    alert("Error descargando CSV");
-  }
-};
-
+  };
 
   return (
     <SafeAreaView style={styles.container}>
@@ -133,7 +140,10 @@ export default function UsuariosScreen() {
                 style={{ marginVertical: 10 }}
               />
 
-              <TouchableOpacity style={styles.previewButton} onPress={handlePreview}>
+              <TouchableOpacity
+                style={styles.previewButton}
+                onPress={handlePreview}
+              >
                 <Ionicons name="document-text-outline" size={18} color="#fff" />
                 <Text style={styles.buttonText}>Generar vista previa</Text>
               </TouchableOpacity>
@@ -143,7 +153,9 @@ export default function UsuariosScreen() {
 
             {previewData.length > 0 && (
               <>
-                <Text style={styles.previewTitle}>Vista previa de docentes</Text>
+                <Text style={styles.previewTitle}>
+                  Vista previa de docentes
+                </Text>
                 <View style={styles.tableHeader}>
                   <Text style={styles.tableHeaderText}>Nombre</Text>
                   <Text style={styles.tableHeaderText}>Correo</Text>
@@ -154,8 +166,12 @@ export default function UsuariosScreen() {
                   keyExtractor={(item, index) => index.toString()}
                   renderItem={({ item }) => (
                     <View style={styles.tableRow}>
-                      <Text style={styles.tableCell}>{item.nombre} {item.apellido}</Text>
-                      <Text style={styles.tableCell}>{item.correo_institucional}</Text>
+                      <Text style={styles.tableCell}>
+                        {item.nombre} {item.apellido}
+                      </Text>
+                      <Text style={styles.tableCell}>
+                        {item.correo_institucional}
+                      </Text>
                       <Text style={styles.tableCell}>{item.contrasena}</Text>
                     </View>
                   )}
@@ -163,14 +179,28 @@ export default function UsuariosScreen() {
 
                 <View style={styles.buttonsRow}>
                   {csvDisponible && (
-                    <TouchableOpacity style={styles.downloadButton} onPress={handleDownload}>
-                      <Ionicons name="download-outline" size={18} color="#fff" />
+                    <TouchableOpacity
+                      style={styles.downloadButton}
+                      onPress={handleDownload}
+                    >
+                      <Ionicons
+                        name="download-outline"
+                        size={18}
+                        color="#fff"
+                      />
                       <Text style={styles.buttonText}>Descargar CSV</Text>
                     </TouchableOpacity>
                   )}
 
-                  <TouchableOpacity style={styles.confirmButton} onPress={handleConfirm}>
-                    <Ionicons name="checkmark-done-outline" size={18} color="#fff" />
+                  <TouchableOpacity
+                    style={styles.confirmButton}
+                    onPress={handleConfirm}
+                  >
+                    <Ionicons
+                      name="checkmark-done-outline"
+                      size={18}
+                      color="#fff"
+                    />
                     <Text style={styles.buttonText}>Confirmar Importación</Text>
                   </TouchableOpacity>
                 </View>
@@ -206,7 +236,12 @@ const styles = StyleSheet.create({
     padding: 8,
     borderRadius: 6,
   },
-  tableHeaderText: { color: "#fff", flex: 1, fontWeight: "bold", textAlign: "center" },
+  tableHeaderText: {
+    color: "#fff",
+    flex: 1,
+    fontWeight: "bold",
+    textAlign: "center",
+  },
   tableRow: {
     flexDirection: "row",
     backgroundColor: "#fff",
@@ -216,7 +251,11 @@ const styles = StyleSheet.create({
     borderRadius: 4,
   },
   tableCell: { flex: 1, textAlign: "center", fontSize: 13 },
-  buttonsRow: { flexDirection: "row", justifyContent: "space-between", marginVertical: 20 },
+  buttonsRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    marginVertical: 20,
+  },
   confirmButton: {
     flexDirection: "row",
     alignItems: "center",

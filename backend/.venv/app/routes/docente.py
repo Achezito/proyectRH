@@ -1,323 +1,151 @@
 from flask import Blueprint, request, jsonify
-from supabase import create_client
 import os
 import traceback
+import requests
+from app.extensions import supabase
 
-# Configuración de Supabase
-from ..extensions import supabase
-docente_bp = Blueprint("docente", __name__)
+teacher_bp = Blueprint('teacher', __name__)
 
-# Middleware para verificar autenticación
-def get_current_user():
-    auth_header = request.headers.get('Authorization')
-    if not auth_header:
-        return None
-    
+@teacher_bp.route('/api/docentes/<int:docente_id>', methods=['GET'])
+def get_docente(docente_id):
     try:
-        # Obtener el token del header
-        token = auth_header.replace('Bearer ', '')
+        print(f"📡 Buscando docente con ID: {docente_id}")
         
-        # Verificar el token con Supabase
-        user = supabase.auth.get_user(token)
-        if user.user:
-            return user.user
-        return None
-    except Exception as e:
-        print(f"Error verificando usuario: {e}")
-        return None
-
-@docente_bp.route("/perfil", methods=["GET"])
-def get_perfil():
-    try:
-        user = get_current_user()
-        if not user:
-            return jsonify({"error": "No autorizado"}), 401
-
-        docente_data = supabase.table("DOCENTES") \
-            .select("id, nombre, apellido, correo_institucional, docencia, cumpleaños, estado, estatus, TIPO_DOCENTE(tipo_contrato)") \
-            .eq("correo_institucional", user.email) \
+        response = supabase.table('DOCENTES') \
+            .select('id, nombre, apellido, correo_institucional, estatus, docencia, cumpleaños, estado, TIPO_DOCENTE(tipo_contrato)') \
+            .eq('id', docente_id) \
             .execute()
-
-        if not docente_data.data:
-            return jsonify({"error": "Docente no encontrado"}), 404
-
-        docente = docente_data.data[0]
-
-        return jsonify({
-            "docente": {
-                "id": docente["id"],
-                "nombre": docente["nombre"],
-                "apellido": docente["apellido"],
-                "correo_institucional": docente["correo_institucional"],
-                "docencia": docente["docencia"],
-                "tipo_contrato": docente.get("TIPO_DOCENTE", {}).get("tipo_contrato", "No especificado"),
-                "cumpleanos": docente.get("cumpleaños"),
-                "estado": docente.get("estado", "Activo"),
-                "estatus": docente.get("estatus", "Aprobado")
-            }
-        }), 200
-
-    except Exception as e:
-        print("Error obteniendo perfil:", e)
-        traceback.print_exc()
-        return jsonify({"error": "Error del servidor"}), 500
-
-@docente_bp.route("/incidencias", methods=["POST"])
-def crear_incidencia():
-    try:
-        user = get_current_user()
-        if not user:
-            return jsonify({"error": "No autorizado"}), 401
-
-        data = request.get_json()
-        if not data:
-            return jsonify({"error": "Datos no proporcionados"}), 400
-
-        for field in ["fecha", "motivo"]:
-            if field not in data or not data[field]:
-                return jsonify({"error": f"Campo requerido: {field}"}), 400
-
-        docente_data = supabase.table("DOCENTES").select("id").eq("correo_institucional", user.email).execute()
-        if not docente_data.data:
-            return jsonify({"error": "Docente no encontrado"}), 404
-
-        docente_id = docente_data.data[0]["id"]
-
-        periodo_data = supabase.table("PERIODO").select("id").order("created_at", desc=True).limit(1).execute()
-        periodo_id = periodo_data.data[0]["id"] if periodo_data.data else 1
-
-        nueva_incidencia = {
-            "fecha": data["fecha"],
-            "motivo": data["motivo"],
-            "justificaciones": bool(data.get("justificaciones", False)),
-            "estado": "En proceso",  # ✅ valor por defecto
-            "docente_id": docente_id,
-            "periodo_id": periodo_id
+        
+        print(f"📊 Respuesta de Supabase: {response.data}")
+        
+        if not response.data:
+            return jsonify({'error': 'Docente no encontrado'}), 404
+        
+        docente = response.data[0]
+        print(f"✅ Docente encontrado: {docente['nombre']} {docente['apellido']}")
+        
+        teacher_data = {
+            'id': docente['id'],
+            'nombre': docente['nombre'],
+            'apellido': docente['apellido'],
+            'nombre_completo': f"{docente['nombre']} {docente['apellido']}",
+            'correo_institucional': docente['correo_institucional'],
+            'estatus': docente['estatus'],
+            'docencia': docente['docencia'],
+            'cumpleaños': docente['cumpleaños'],
+            'tipo_contrato': docente['TIPO_DOCENTE']['tipo_contrato'] if docente.get('TIPO_DOCENTE') else '',
+            'estado': docente['estado']
         }
-
-        result = supabase.table("INCIDENCIAS").insert(nueva_incidencia).execute()
-
-        if not result.data:
-            return jsonify({"error": "No se pudo crear la incidencia"}), 500
-
-        return jsonify({
-            "message": "Incidencia creada exitosamente",
-            "incidencia": result.data[0]
-        }), 201
-
+        
+        print(f"📦 Datos a enviar al frontend: {teacher_data}")
+        return jsonify(teacher_data), 200
+        
     except Exception as e:
-        print("Error creando incidencia:", e)
+        print(f"❌ Error obteniendo datos del docente: {str(e)}")
         traceback.print_exc()
-        return jsonify({"error": "Error del servidor"}), 500
+        return jsonify({'error': 'Error interno del servidor'}), 500
 
-
-# Obtener días económicos del docente
-@docente_bp.route("/dias-economicos", methods=["GET"])
-def get_dias_economicos():
-    try:
-        user = get_current_user()
-        if not user:
-            return jsonify({"error": "No autorizado"}), 401
-
-        # Obtener el ID del docente
-        docente_data = supabase.table("DOCENTES")\
-            .select("id")\
-            .eq("correo_institucional", user.email)\
-            .execute()
-
-        if not docente_data.data:
-            return jsonify({"error": "Docente no encontrado"}), 404
-
-        docente_id = docente_data.data[0]["id"]
-
-        # Obtener días económicos
-        dias_data = supabase.table("DIAS_ECONOMICOS")\
-            .select("*")\
-            .eq("docente_id", docente_id)\
-            .order("fecha", desc=True)\
-            .execute()
-
-        # Calcular días restantes (lógica básica - ajusta según tus necesidades)
-        dias_totales = 3  # Puedes hacer esto configurable
-        dias_utilizados = len(dias_data.data) if dias_data.data else 0
-        dias_restantes = max(0, dias_totales - dias_utilizados)
-
-        return jsonify({
-            "dias_economicos": dias_data.data,
-            "dias_restantes": dias_restantes,
-            "dias_totales": dias_totales
-        }), 200
-
-    except Exception as e:
-        print(f"Error obteniendo días económicos: {e}")
-        return jsonify({"error": "Error del servidor"}), 500
-
-# Crear solicitud de día económico
-@docente_bp.route("/dias-economicos", methods=["POST"])
-def crear_dia_economico():
-    try:
-        user = get_current_user()
-        if not user:
-            return jsonify({"error": "No autorizado"}), 401
-
-        data = request.get_json()
-        if not data:
-            return jsonify({"error": "Datos no proporcionados"}), 400
-
-        # Validar campos requeridos
-        required_fields = ["fecha", "motivo"]
-        for field in required_fields:
-            if field not in data:
-                return jsonify({"error": f"Campo requerido: {field}"}), 400
-
-        # Obtener el ID del docente
-        docente_data = supabase.table("DOCENTES")\
-            .select("id")\
-            .eq("correo_institucional", user.email)\
-            .execute()
-
-        if not docente_data.data:
-            return jsonify({"error": "Docente no encontrado"}), 404
-
-        docente_id = docente_data.data[0]["id"]
-
-        # Verificar días disponibles
-        dias_data = supabase.table("DIAS_ECONOMICOS")\
-            .select("id")\
-            .eq("docente_id", docente_id)\
-            .execute()
-
-        dias_utilizados = len(dias_data.data) if dias_data.data else 0
-        if dias_utilizados >= 3:  # Límite de 3 días - ajusta según necesidades
-            return jsonify({"error": "No tienes días económicos disponibles"}), 400
-
-        # Obtener el período activo
-        periodo_data = supabase.table("PERIODO")\
-            .select("id")\
-            .order("created_at", desc=True)\
-            .limit(1)\
-            .execute()
-
-        periodo_id = periodo_data.data[0]["id"] if periodo_data.data else 1
-
-        # Crear día económico
-        nuevo_dia = {
-            "fecha": data["fecha"],
-            "motivo": data["motivo"],
-            "docente_id": docente_id,
-            "periodo_id": periodo_id
-        }
-
-        result = supabase.table("DIAS_ECONOMICOS").insert(nuevo_dia).execute()
-
-        if not result.data:
-            return jsonify({"error": "No se pudo crear la solicitud"}), 500
-
-        return jsonify({
-            "message": "Solicitud de día económico creada exitosamente",
-            "dia_economico": result.data[0]
-        }), 201
-
-    except Exception as e:
-        print(f"Error creando día económico: {e}")
-        return jsonify({"error": "Error del servidor"}), 500
-
-# Cambiar contraseña
-@docente_bp.route("/cambiar-contrasena", methods=["POST"])
+@teacher_bp.route('/api/docentes/cambiar-contrasena', methods=['POST'])
 def cambiar_contrasena():
     try:
-        user = get_current_user()
-        if not user:
-            return jsonify({"error": "No autorizado"}), 401
-
         data = request.get_json()
-        if not data:
-            return jsonify({"error": "Datos no proporcionados"}), 400
-
-        required_fields = ["nueva_contrasena", "confirmar_contrasena"]
-        for field in required_fields:
-            if field not in data:
-                return jsonify({"error": f"Campo requerido: {field}"}), 400
-
-        if data["nueva_contrasena"] != data["confirmar_contrasena"]:
-            return jsonify({"error": "Las contraseñas no coinciden"}), 400
-
-        if len(data["nueva_contrasena"]) < 6:
-            return jsonify({"error": "La contraseña debe tener al menos 6 caracteres"}), 400
-
-        # Actualizar contraseña en Supabase Auth
-        try:
-            # Para cambiar contraseña necesitas el token de sesión
-            auth_header = request.headers.get('Authorization')
-            token = auth_header.replace('Bearer ', '')
-            
-            # Usar el admin API para cambiar la contraseña
-            # Nota: Esto requiere permisos de administrador
-            update_result = supabase.auth.admin.update_user_by_id(
-                user.id,
-                {"password": data["nueva_contrasena"]}
-            )
-            
-            if update_result.user:
-                return jsonify({
-                    "message": "Contraseña actualizada exitosamente"
-                }), 200
-            else:
-                return jsonify({"error": "No se pudo actualizar la contraseña"}), 500
-
-        except Exception as auth_error:
-            print(f"Error actualizando contraseña: {auth_error}")
-            return jsonify({"error": "Error al actualizar la contraseña"}), 500
-
-    except Exception as e:
-        print(f"Error en cambiar contraseña: {e}")
-        return jsonify({"error": "Error del servidor"}), 500
-
-# Dashboard con resumen
-@docente_bp.route("/dashboard", methods=["GET"])
-def dashboard():
-    try:
-        user = get_current_user()
-        if not user:
-            return jsonify({"error": "No autorizado"}), 401
-
-        # Obtener el ID del docente
-        docente_data = supabase.table("DOCENTES")\
-            .select("id")\
-            .eq("correo_institucional", user.email)\
+        nueva_contrasena = data.get('newPassword')
+        confirmar_contrasena = data.get('confirmPassword')
+        docente_id = data.get('docente_id')
+        
+        print(f"🔐 Cambiando contraseña para docente {docente_id}...")
+        
+        # Validaciones básicas
+        if not all([nueva_contrasena, confirmar_contrasena, docente_id]):
+            return jsonify({'error': 'Todos los campos son requeridos'}), 400
+        
+        if nueva_contrasena != confirmar_contrasena:
+            return jsonify({'error': 'Las contraseñas no coinciden'}), 400
+        
+        if len(nueva_contrasena) < 8:
+            return jsonify({'error': 'La contraseña debe tener al menos 8 caracteres'}), 400
+        
+        # Obtener correo del docente
+        response = supabase.table('DOCENTES') \
+            .select('correo_institucional') \
+            .eq('id', docente_id) \
             .execute()
-
-        if not docente_data.data:
-            return jsonify({"error": "Docente no encontrado"}), 404
-
-        docente_id = docente_data.data[0]["id"]
-
-        # Obtener conteos
-        incidencias_data = supabase.table("INCIDENCIAS")\
-            .select("id", count="exact")\
-            .eq("docente_id", docente_id)\
-            .execute()
-
-        dias_data = supabase.table("DIAS_ECONOMICOS")\
-            .select("id", count="exact")\
-            .eq("docente_id", docente_id)\
-            .execute()
-
-        incidencias_pendientes = supabase.table("INCIDENCIAS")\
-            .select("id", count="exact")\
-            .eq("docente_id", docente_id)\
-            .eq("estado", "pendiente")\
-            .execute()
-
-        return jsonify({
-            "resumen": {
-                "total_incidencias": len(incidencias_data.data) if incidencias_data.data else 0,
-                "total_dias_economicos": len(dias_data.data) if dias_data.data else 0,
-                "incidencias_pendientes": len(incidencias_pendientes.data) if incidencias_pendientes.data else 0,
-                "dias_restantes": max(0, 3 - (len(dias_data.data) if dias_data.data else 0))
+        
+        if not response.data:
+            return jsonify({'error': 'Docente no encontrado'}), 404
+        
+        correo_docente = response.data[0]['correo_institucional']
+        print(f"📧 Correo del docente: {correo_docente}")
+        
+        # NORMALIZAR EMAIL A MINÚSCULAS
+        correo_normalizado = correo_docente.lower()
+        print(f"📧 Correo normalizado: {correo_normalizado}")
+        
+        # Obtener credenciales
+        supabase_url = os.environ.get('SUPABASE_URL')
+        service_key = os.environ.get('SUPABASE_SERVICE_ROLE_KEY')
+        
+        if not supabase_url or not service_key:
+            return jsonify({'error': 'Configuración del servidor incompleta'}), 500
+        
+        headers = {
+            "Authorization": f"Bearer {service_key}",
+            "apikey": service_key,
+            "Content-Type": "application/json"
+        }
+        
+        # 1. Buscar usuario por email (usando email normalizado)
+        search_url = f"{supabase_url}/auth/v1/admin/users"
+        search_params = {"per_page": 1000}
+        
+        print("🔍 Buscando usuario...")
+        search_response = requests.get(search_url, headers=headers, params=search_params)
+        
+        print(f"📨 Status de búsqueda: {search_response.status_code}")
+        
+        if search_response.status_code != 200:
+            return jsonify({'error': f'Error buscando usuario: {search_response.text}'}), 500
+        
+        users = search_response.json().get('users', [])
+        user_id = None
+        
+        for user in users:
+            if user.get('email', '').lower() == correo_normalizado:  # ← Comparar en minúsculas
+                user_id = user.get('id')
+                print(f"✅ Usuario encontrado: {user_id}")
+                break
+        
+        if user_id:
+            print(f"🔄 Actualizando usuario existente: {user_id}")
+            # Actualizar contraseña
+            update_url = f"{supabase_url}/auth/v1/admin/users/{user_id}"
+            update_data = {
+                "password": nueva_contrasena
             }
-        }), 200
-
+            
+            update_response = requests.put(update_url, headers=headers, json=update_data)
+            print(f"📨 Status de actualización: {update_response.status_code}")
+            
+            if update_response.status_code == 200:
+                print("✅ Contraseña actualizada exitosamente")
+            else:
+                return jsonify({'error': f'Error actualizando contraseña: {update_response.text}'}), 500
+        else:
+            print("❌ Usuario realmente no existe en Auth")
+            return jsonify({'error': 'Usuario no encontrado en el sistema de autenticación'}), 404
+        
+        # 2. Eliminar credenciales temporales
+        print("🗑️ Eliminando credenciales temporales...")
+        delete_response = supabase.table('credenciales_temporales') \
+            .delete() \
+            .eq('correo_institucional', correo_docente) \
+            .execute()
+        
+        print("✅ Contraseña actualizada en Auth y credenciales temporales eliminadas")
+        return jsonify({'message': 'Contraseña actualizada correctamente'}), 200
+        
     except Exception as e:
-        print(f"Error en dashboard: {e}")
-        return jsonify({"error": "Error del servidor"}), 500
+        print(f"❌ Error general: {str(e)}")
+        import traceback
+        traceback.print_exc()
+        return jsonify({'error': 'Error interno del servidor'}), 500

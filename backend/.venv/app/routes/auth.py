@@ -87,10 +87,13 @@ def login():
         rol_id = rol_data.data[0]["rol_id"] if rol_data.data else 2
 
         estado = None
+        docente_id = None  # ← AÑADE ESTA VARIABLE
+        
         if rol_id != 1:  # Si no es admin
-            docente_data = supabase.table("DOCENTES").select("estado").eq("correo_institucional", email).execute()
+            docente_data = supabase.table("DOCENTES").select("id, estado").eq("correo_institucional", email).execute()  # ← AÑADE "id" aquí
             if docente_data.data:
                 estado = docente_data.data[0]["estado"]
+                docente_id = docente_data.data[0]["id"]  # ← OBTÉN EL ID DEL DOCENTE
                 if estado == "pendiente_activacion":
                     return jsonify({"error": "Completa el proceso de activación con el código"}), 403
                 elif estado == "rechazado":
@@ -100,6 +103,7 @@ def login():
             "message": "Login exitoso",
             "session_created": True,
             "user": {
+                "id": docente_id,  # ← AÑADE EL ID AQUÍ
                 "email": email,
                 "rol_id": rol_id,
                 "estado": estado or "activo"
