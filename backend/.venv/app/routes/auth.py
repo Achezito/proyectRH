@@ -87,13 +87,16 @@ def login():
         rol_id = rol_data.data[0]["rol_id"] if rol_data.data else 2
 
         estado = None
-        docente_id = None  # ← AÑADE ESTA VARIABLE
+        docente_id = None
         
-        if rol_id != 1:  # Si no es admin
-            docente_data = supabase.table("DOCENTES").select("id, estado").eq("correo_institucional", email).execute()  # ← AÑADE "id" aquí
-            if docente_data.data:
-                estado = docente_data.data[0]["estado"]
-                docente_id = docente_data.data[0]["id"]  # ← OBTÉN EL ID DEL DOCENTE
+        # BUSCAR DOCENTE_ID PARA TODOS LOS ROLES, NO SOLO PARA NO-ADMIN
+        docente_data = supabase.table("DOCENTES").select("id, estado").eq("correo_institucional", email).execute()
+        if docente_data.data:
+            estado = docente_data.data[0]["estado"]
+            docente_id = docente_data.data[0]["id"]
+            
+            # Validar estado solo para no-admins
+            if rol_id != 1:  # Si no es admin
                 if estado == "pendiente_activacion":
                     return jsonify({"error": "Completa el proceso de activación con el código"}), 403
                 elif estado == "rechazado":
@@ -103,7 +106,7 @@ def login():
             "message": "Login exitoso",
             "session_created": True,
             "user": {
-                "id": docente_id,  # ← AÑADE EL ID AQUÍ
+                "id": docente_id,  # ← AHORA SIEMPRE TENDRÁ VALOR (None si no es docente)
                 "email": email,
                 "rol_id": rol_id,
                 "estado": estado or "activo"
@@ -117,27 +120,43 @@ def activar_cuenta_docente(credencial, email):
     try:
         print(f"🔄 Iniciando activación para: {email}")
         
-        # 1. Verificar tipos de docente disponibles o usar valor por defecto
-        tipos_docente = supabase.table("TIPO_DOCENTE").select("id").execute()
+        # 1. Obtener el ID del tipo de contrato basado en el valor en credenciales_temporales
+        tipo_contrato_valor = credencial.get("tipo_contrato", "Anual")  # Valor por defecto
+        print(f"🔧 Buscando tipo de contrato: {tipo_contrato_valor}")
         
-        if not tipos_docente.data:
-            # Si no hay tipos, usar 1 como valor por defecto
-            tipo_id_default = 1
-            print("⚠️ Usando tipo_id por defecto: 1")
-        else:
-            tipo_id_default = tipos_docente.data[0]["id"]
-            print(f"🔧 Tipo de docente por defecto: {tipo_id_default}")
+        tipos_docente = supabase.table("TIPO_DOCENTE").select("id, tipo_contrato").execute()
+        
+        tipodocente_id = None
+        if tipos_docente.data:
+            # Buscar el tipo de contrato que coincida
+            for tipo in tipos_docente.data:
+                if tipo["tipo_contrato"].lower() == tipo_contrato_valor.lower():
+                    tipodocente_id = tipo["id"]
+                    break
+        
+        # Si no se encuentra, usar el primero disponible o valor por defecto
+        if not tipodocente_id:
+            if tipos_docente.data:
+                tipodocente_id = tipos_docente.data[0]["id"]
+                print(f"⚠️ Tipo de contrato '{tipo_contrato_valor}' no encontrado, usando: {tipos_docente.data[0]['tipo_contrato']}")
+            else:
+                tipodocente_id = 1  # Valor por defecto absoluto
+                print("⚠️ No hay tipos de docente configurados, usando ID por defecto: 1")
+
+        # Obtener tipo_colaborador de las credenciales temporales
+        tipo_colaborador = credencial.get("tipo_colaborador", "colaborador")  # Valor por defecto
+        print(f"🔧 Tipo de colaborador: {tipo_colaborador}")
 
         # 2. Verificar que existe en ambas tablas
         docente_check = supabase.table("DOCENTES")\
-            .select("id, estado, nombre, apellido")\
+            .select("id, estado, nombre, apellido, tipo_colaborador, tipodocente_id")\
             .eq("correo_institucional", email)\
             .execute()
         
         print(f"📊 Docente en DOCENTES: {docente_check.data}")
         
         if not docente_check.data:
-            # Intentar crear el docente si no existe (como fallback)
+            # Crear el docente si no existe
             print(f"⚠️ Docente no encontrado en DOCENTES, creando...")
             docente_data = {
                 "nombre": credencial["nombre"],
@@ -145,9 +164,10 @@ def activar_cuenta_docente(credencial, email):
                 "correo_institucional": email,
                 "cumpleaños": credencial["cumpleanos"],
                 "docencia": credencial["docencia"],
+                "tipodocente_id": tipodocente_id,  # ← CORREGIDO: usar tipodocente_id
+                "tipo_colaborador": tipo_colaborador,
                 "estado": "activo",
                 "estatus": "activo",
-                "tipo_id": tipo_id_default,  # Usar tipo_id válido
             }
             
             result_docente = supabase.table("DOCENTES").insert(docente_data).execute()
@@ -158,14 +178,22 @@ def activar_cuenta_docente(credencial, email):
             docente_actual = docente_check.data[0]
             print(f"📝 Estado actual del docente: {docente_actual['estado']}")
             
-            # Actualizar el docente existente
+            # Actualizar el docente existente con los nuevos campos
+            update_data = {
+                "estado": "activo",
+                "estatus": "activo",
+                "tipodocente_id": tipodocente_id,  # ← CORREGIDO: usar tipodocente_id
+                "tipo_colaborador": tipo_colaborador,
+                "aprobado_por": None,
+                "fecha_aprobacion": "now()"
+            }
+            
+            # Solo actualizar tipo_colaborador si no existe o es diferente
+            if docente_actual.get("tipo_colaborador") and docente_actual["tipo_colaborador"] != tipo_colaborador:
+                print(f"🔄 Actualizando tipo_colaborador de '{docente_actual.get('tipo_colaborador')}' a '{tipo_colaborador}'")
+            
             update_result = supabase.table("DOCENTES")\
-                .update({
-                    "estado": "activo",
-                    "estatus": "activo",
-                    "aprobado_por": None,
-                    "fecha_aprobacion": "now()"
-                })\
+                .update(update_data)\
                 .eq("correo_institucional", email)\
                 .execute()
             
@@ -216,7 +244,9 @@ def activar_cuenta_docente(credencial, email):
             "user": {
                 "email": email,
                 "rol_id": 2,
-                "estado": "activo"
+                "estado": "activo",
+                "tipo_colaborador": tipo_colaborador,
+                "tipodocente_id": tipodocente_id  # ← CORREGIDO: usar tipodocente_id
             },
             "first_login": True
         })

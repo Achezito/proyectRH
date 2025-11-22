@@ -3,7 +3,7 @@ import { NavigationContainer } from "@react-navigation/native";
 import { createNativeStackNavigator } from "@react-navigation/native-stack";
 import LoginScreen from "../components/login";
 import RegisterScreen from "../components/register";
-import DocenteHomeScreen from "../screens/docente/HomeScreenDocente";
+import DocenteHomeScreen from "../../src/components/teacherDashboard/teacherdashboard";
 import AdminHomeScreen from "../screens/administrador/HomeScreenAdmin";
 import docenteScreenManagment from "../screens/administrador/manage-docentes";
 import UsuariosPanel from "../screens/administrador/manage-users";

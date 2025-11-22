@@ -149,13 +149,44 @@ def preview_docentes():
                 return fecha
 
         encabezados = {normalizar_texto(col): col for col in reader[0].keys()}
-        columnas_esperadas = {"correo_institucional", "nombre", "apellido", "cumpleanos", "docencia"}
+        
+        # Columnas requeridas actualizadas
+        columnas_esperadas = {
+            "correo_institucional", 
+            "nombre", 
+            "apellido", 
+            "cumpleanos", 
+            "docencia",
+            "tipo_contrato",      # ← NUEVO
+            "tipo_colaborador"    # ← NUEVO
+        }
+        
         faltantes = columnas_esperadas - set(encabezados.keys())
         if faltantes:
             return jsonify({"error": f"Faltan columnas: {', '.join(faltantes)}"}), 400
 
+        # Validar tipos de contrato y colaborador permitidos
+        tipos_contrato_validos = ["anual", "cuatrimestral"]
+        tipos_colaborador_validos = ["colaborador", "administrativo"]
+        
         generados = []
-        for fila in reader:
+        errores_validacion = []
+        
+        for i, fila in enumerate(reader, 1):
+            # Validar tipo_contrato
+            tipo_contrato = fila.get(encabezados["tipo_contrato"], "").strip().lower()
+            if tipo_contrato not in tipos_contrato_validos:
+                errores_validacion.append(f"Fila {i}: Tipo de contrato inválido '{tipo_contrato}'. Válidos: {', '.join(tipos_contrato_validos)}")
+            
+            # Validar tipo_colaborador
+            tipo_colaborador = fila.get(encabezados["tipo_colaborador"], "").strip().lower()
+            if tipo_colaborador not in tipos_colaborador_validos:
+                errores_validacion.append(f"Fila {i}: Tipo de colaborador inválido '{tipo_colaborador}'. Válidos: {', '.join(tipos_colaborador_validos)}")
+            
+            # Si hay errores de validación, continuar para mostrar todos los errores
+            if errores_validacion:
+                continue
+            
             contrasena = ''.join(secrets.choice(string.ascii_letters + string.digits) for _ in range(10))
             generados.append({
                 "nombre": fila.get(encabezados["nombre"], "").strip(),
@@ -163,9 +194,19 @@ def preview_docentes():
                 "correo_institucional": fila.get(encabezados["correo_institucional"], "").strip(),
                 "cumpleanos": convertir_fecha(fila.get(encabezados["cumpleanos"], "").strip()),
                 "docencia": fila.get(encabezados["docencia"], "").strip(),
+                "tipo_contrato": tipo_contrato.title(),  # Primera letra mayúscula
+                "tipo_colaborador": tipo_colaborador.title(),  # Primera letra mayúscula
                 "contrasena": contrasena
             })
 
+        # Si hay errores de validación, retornarlos
+        if errores_validacion:
+            return jsonify({
+                "error": "Errores de validación en el archivo",
+                "detalles": errores_validacion
+            }), 400
+
+        # Guardar preview para confirmación
         with open(PREVIEW_PATH, "w", newline="", encoding="utf-8") as csvfile:
             writer = csv.DictWriter(csvfile, fieldnames=list(generados[0].keys()))
             writer.writeheader()
@@ -174,6 +215,13 @@ def preview_docentes():
         return jsonify({
             "mensaje": "Archivo procesado correctamente",
             "preview": generados,
+            "total_registros": len(generados),
+            "resumen": {
+                "colaboradores_anual": len([d for d in generados if d["tipo_colaborador"] == "Colaborador" and d["tipo_contrato"] == "Anual"]),
+                "colaboradores_cuatrimestral": len([d for d in generados if d["tipo_colaborador"] == "Colaborador" and d["tipo_contrato"] == "Cuatrimestral"]),
+                "administrativos_anual": len([d for d in generados if d["tipo_colaborador"] == "Administrativo" and d["tipo_contrato"] == "Anual"]),
+                "administrativos_cuatrimestral": len([d for d in generados if d["tipo_colaborador"] == "Administrativo" and d["tipo_contrato"] == "Cuatrimestral"])
+            },
             "csv_disponible": True
         }), 200
 
@@ -250,17 +298,80 @@ def confirmar_docentes():
         if not docentes:
             return jsonify({"error": "No se recibieron docentes para confirmar"}), 400
 
-        # Obtener el tipo_id disponible o usar 1 como fallback
-        tipos_docente = supabase.table("TIPO_DOCENTE").select("id").execute()
-        
-        if not tipos_docente.data:
-            # Si no hay tipos, usar 1 como valor por defecto (asumiendo que existe)
-            tipo_id_default = 1
-            print("⚠️ Usando tipo_id por defecto: 1")
-        else:
-            tipo_id_default = tipos_docente.data[0]["id"]
-            print(f"🔧 Usando tipo_id: {tipo_id_default}")
+        print(f"🔧 Procesando {len(docentes)} docentes")
 
+        # Obtener mapeo de tipos de docente - CON DEBUGGING COMPLETO
+        try:
+            print("🔧 Intentando acceder a TIPO_DOCENTE...")
+            
+            # Intentar con diferentes nombres de tabla
+            tablas_intentadas = []
+            resultados = {}
+            
+            # Intentar con "TIPO_DOCENTE" (exacto)
+            try:
+                print("🔧 Intentando con 'TIPO_DOCENTE'...")
+                tipos_docente_db = supabase.table("TIPO_DOCENTE").select("id, tipo_contrato").execute()
+                tablas_intentadas.append("TIPO_DOCENTE")
+                resultados["TIPO_DOCENTE"] = tipos_docente_db
+                print(f"🔧 Resultado TIPO_DOCENTE: {tipos_docente_db}")
+            except Exception as e1:
+                print(f"❌ Error con TIPO_DOCENTE: {e1}")
+                resultados["TIPO_DOCENTE"] = None
+            
+            # Intentar con "tipo_docente" (minúsculas)
+            try:
+                print("🔧 Intentando con 'tipo_docente'...")
+                tipos_docente_db_minus = supabase.table("tipo_docente").select("id, tipo_contrato").execute()
+                tablas_intentadas.append("tipo_docente")
+                resultados["tipo_docente"] = tipos_docente_db_minus
+                print(f"🔧 Resultado tipo_docente: {tipos_docente_db_minus}")
+            except Exception as e2:
+                print(f"❌ Error con tipo_docente: {e2}")
+                resultados["tipo_docente"] = None
+            
+            # Buscar qué tabla funcionó
+            tabla_funcional = None
+            datos_tipos = None
+            
+            for tabla, resultado in resultados.items():
+                if resultado and hasattr(resultado, 'data') and resultado.data:
+                    tabla_funcional = tabla
+                    datos_tipos = resultado.data
+                    print(f"✅ Tabla funcional encontrada: {tabla}")
+                    print(f"✅ Datos obtenidos: {datos_tipos}")
+                    break
+            
+            if not tabla_funcional:
+                print("❌ Ninguna tabla funcionó")
+                # Intentar una consulta SQL directa como último recurso
+                try:
+                    print("🔧 Intentando consulta SQL directa...")
+                    # Esto depende de cómo esté configurado tu Supabase
+                    # Si tienes habilitado SQL, podrías intentar:
+                    # result = supabase.rpc('get_tipos_docente', {}).execute()
+                    pass
+                except Exception as e3:
+                    print(f"❌ Error con consulta SQL: {e3}")
+                
+                return jsonify({
+                    "error": "No se pudo acceder a la tabla de tipos de contrato. Tablas intentadas: " + ", ".join(tablas_intentadas)
+                }), 500
+                
+            tipo_docente_map = {td["tipo_contrato"].lower(): td["id"] for td in datos_tipos}
+            
+            print(f"🔧 Mapeo final creado: {tipo_docente_map}")
+            print(f"🔧 Tipos disponibles: {list(tipo_docente_map.keys())}")
+
+        except Exception as e:
+            print(f"❌ Error general accediendo a tipos: {str(e)}")
+            import traceback
+            print(f"❌ Traceback: {traceback.format_exc()}")
+            return jsonify({
+                "error": f"Error al acceder a la configuración de tipos de contrato: {str(e)}"
+            }), 500
+
+        # CONTINÚA CON EL RESTO DEL CÓDIGO...
         nuevos, errores = 0, []
         
         for d in docentes:
@@ -275,10 +386,10 @@ def confirmar_docentes():
                 
                 if existing_docente.data:
                     estado_actual = existing_docente.data[0]["estado"]
-                    errores.append({"correo": correo, "error": f"El docente ya existe en el sistema con estado: {estado_actual}"})
+                    errores.append({"correo": correo, "error": f"Ya existe en el sistema con estado: {estado_actual}"})
                     continue
 
-                # Verificar si ya existe en credenciales temporales
+                # Verificar credenciales temporales
                 existing_credencial = supabase.table("credenciales_temporales")\
                     .select("correo_institucional")\
                     .eq("correo_institucional", correo)\
@@ -288,6 +399,9 @@ def confirmar_docentes():
                     errores.append({"correo": correo, "error": "Ya hay credenciales temporales para este correo"})
                     continue
 
+                # Obtener ID del tipo de contrato
+                tipo_docente_id = tipo_docente_map[d["tipo_contrato"].strip().lower()]
+
                 # Guardar en credenciales temporales
                 credencial_data = {
                     "correo_institucional": correo,
@@ -295,7 +409,9 @@ def confirmar_docentes():
                     "nombre": d["nombre"],
                     "apellido": d["apellido"],
                     "docencia": d["docencia"],
-                    "cumpleanos": d["cumpleanos"]
+                    "cumpleanos": d["cumpleanos"],
+                    "tipo_contrato": d["tipo_contrato"],
+                    "tipo_colaborador": d["tipo_colaborador"]
                 }
 
                 result_credenciales = supabase.table("credenciales_temporales").insert(credencial_data).execute()
@@ -303,22 +419,22 @@ def confirmar_docentes():
                 if not result_credenciales.data:
                     raise Exception("Error: No se pudo insertar en credenciales_temporales")
 
-                # Crear registro en DOCENTES como "pendiente"
+                # Crear registro en DOCENTES
                 docente_data = {
                     "nombre": d["nombre"],
                     "apellido": d["apellido"],
                     "correo_institucional": correo,
                     "cumpleaños": d["cumpleanos"],
                     "docencia": d["docencia"],
+                    "tipodocente_id": tipo_docente_id,
+                    "tipo_colaborador": d["tipo_colaborador"],
                     "estado": "pendiente_activacion",
                     "estatus": "inactivo",
-                    "tipo_id": tipo_id_default,
                 }
 
                 result_docentes = supabase.table("DOCENTES").insert(docente_data).execute()
                 
                 if not result_docentes.data:
-                    # Revertir: eliminar credencial temporal
                     supabase.table("credenciales_temporales")\
                         .delete()\
                         .eq("correo_institucional", correo)\
@@ -326,7 +442,7 @@ def confirmar_docentes():
                     raise Exception("Error: No se pudo insertar en DOCENTES")
 
                 nuevos += 1
-                print(f"✅ Docente preparado para activación: {correo}")
+                print(f"✅ Docente preparado: {correo}")
 
             except Exception as e:
                 error_msg = str(e)
@@ -334,13 +450,14 @@ def confirmar_docentes():
                 errores.append({"correo": correo, "error": error_msg})
 
         return jsonify({
-            "mensaje": f"{nuevos} docentes preparados para activación. Se crearán las cuentas cuando inicien sesión.",
+            "mensaje": f"{nuevos} docentes preparados para activación.",
             "insertados": nuevos,
             "errores": errores
         }), 200
 
     except Exception as e:
         print(f"❌ Error general: {str(e)}")
+        import traceback
         traceback.print_exc()
         return jsonify({"error": str(e)}), 500
 @admin_bp.route("/limpiar-credenciales-temporales", methods=["POST"])
