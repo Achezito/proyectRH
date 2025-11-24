@@ -2,11 +2,11 @@ import React from "react";
 import { View, Text, TouchableOpacity, Alert } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { styles } from "./styles";
-
+import { supabase } from "C:/Users/Hpp/Desktop/proyectRH/RH_frontend/supabaseClient.js";
 const Sidebar = ({ sidebarOpen, userData, activeTab, setActiveTab }) => {
   if (!sidebarOpen) return null;
 
-  const handleLogout = () => {
+  const handleLogout = async () => {
     Alert.alert(
       "Cerrar Sesión",
       "¿Estás seguro de que quieres cerrar sesión?",
@@ -17,9 +17,29 @@ const Sidebar = ({ sidebarOpen, userData, activeTab, setActiveTab }) => {
         },
         {
           text: "Sí, cerrar sesión",
-          onPress: () => {
-            // Aquí va la lógica de logout
-            console.log("Cerrar sesión");
+          onPress: async () => {
+            try {
+              // 1. Cerrar sesión en Supabase
+              const { error } = await supabase.auth.signOut();
+
+              if (error) {
+                console.error("Error al cerrar sesión:", error);
+              }
+
+              // 2. Limpiar localStorage
+              localStorage.removeItem("sb-iltnubfjvyprcdujhkqi-auth-token");
+              localStorage.removeItem("docenteId");
+
+              console.log("✅ Sesión cerrada correctamente");
+
+              // 3. Recargar la página
+              window.location.reload();
+            } catch (error) {
+              console.error("Error al cerrar sesión:", error);
+              // Limpiar localStorage aunque falle
+              localStorage.removeItem("sb-iltnubfjvyprcdujhkqi-auth-token");
+              window.location.reload();
+            }
           },
         },
       ]

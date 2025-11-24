@@ -74,13 +74,32 @@ export default function LoginPage() {
       console.log("Login exitoso:", data.user);
 
       if (data.user && data.user.id) {
-        await AsyncStorage.setItem("docenteId", data.user.id.toString());
+        await AsyncStorage.setItem(
+          "docenteId",
+          data.user.docente_id.toString()
+        );
+        await AsyncStorage.setItem("userId", data.user.id); // Guarda el UUID por separado si lo necesitas
+        await AsyncStorage.setItem("userEmail", data.user.email);
         console.log("ID real guardado:", data.user.id);
+
+        // ✅ GUARDAR EL TOKEN DE SUPABASE
+        if (data.access_token) {
+          const tokenData = {
+            access_token: data.access_token,
+            refresh_token: data.refresh_token,
+            expires_at: data.expires_at,
+            token_type: data.token_type || "bearer",
+          };
+          await AsyncStorage.setItem(
+            "sb-iltnubfjvyprcdujhkqi-auth-token",
+            JSON.stringify(tokenData)
+          );
+          console.log("✅ Token de Supabase guardado");
+        }
       } else {
         console.error("ERROR: El backend no devolvió el ID del docente");
         throw new Error("No se pudo obtener el ID del usuario");
       }
-
       setUser({
         ...data.user,
         rol_id: data.user.rol_id,

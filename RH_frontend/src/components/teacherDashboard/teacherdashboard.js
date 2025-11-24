@@ -14,7 +14,8 @@ export default function TeacherDashboard() {
   const [loading, setLoading] = useState(true);
   const [docenteId, setDocenteId] = useState(null);
   const [userData, setUserData] = useState(null);
-  const [activeTab, setActiveTab] = useState("incidencias"); // Cambiamos a incidencias por defecto
+  const [activeTab, setActiveTab] = useState("incidencias");
+  const [error, setError] = useState(null);
 
   useEffect(() => {
     loadTeacherId();
@@ -23,26 +24,46 @@ export default function TeacherDashboard() {
   const loadTeacherId = async () => {
     try {
       const id = await AsyncStorage.getItem("docenteId");
+      console.log("📱 ID recuperado de AsyncStorage:", id); // Debug
+
       if (id) {
-        setDocenteId(parseInt(id));
-        loadTeacherData(parseInt(id));
+        const parsedId = parseInt(id, 10);
+        console.log("🔢 ID parseado:", parsedId); // Debug
+
+        if (!isNaN(parsedId)) {
+          setDocenteId(parsedId);
+          loadTeacherData(parsedId);
+        } else {
+          setError("ID de docente inválido");
+          setLoading(false);
+        }
       } else {
+        setError("No se encontró ID de docente");
         setLoading(false);
       }
     } catch (e) {
+      console.error("❌ Error cargando ID:", e);
+      setError("Error al cargar datos del docente");
       setLoading(false);
     }
   };
 
   const loadTeacherData = async (id) => {
     try {
+      console.log(`🌐 Haciendo petición a: ${API_BASE_URL}/api/docentes/${id}`); // Debug
+
       const res = await fetch(`${API_BASE_URL}/api/docentes/${id}`);
-      const data = await res.json();
-      if (res.ok) {
-        setUserData(data);
+
+      if (!res.ok) {
+        throw new Error(`Error HTTP: ${res.status}`);
       }
+
+      const data = await res.json();
+      setUserData(data);
+      setError(null);
     } catch (e) {
-      console.log(e);
+      console.error("❌ Error cargando datos:", e);
+      setError("Error al cargar datos del servidor");
     } finally {
       setLoading(false);
     }
@@ -53,6 +74,17 @@ export default function TeacherDashboard() {
       <View style={styles.loadingContainer}>
         <ActivityIndicator size="large" color="#6366f1" />
         <Text style={styles.loadingText}>Cargando datos del docente...</Text>
+      </View>
+    );
+  }
+
+  if (error) {
+    return (
+      <View style={styles.loadingContainer}>
+        <Text style={[styles.loadingText, { color: "red" }]}>{error}</Text>
+        <Text style={styles.loadingText}>
+          Por favor, cierra la app y vuelve a iniciar sesión.
+        </Text>
       </View>
     );
   }

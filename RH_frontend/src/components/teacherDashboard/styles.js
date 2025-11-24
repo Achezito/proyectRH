@@ -367,6 +367,7 @@ export const styles = StyleSheet.create({
     backgroundColor: "white",
     borderRadius: 16,
     padding: 24,
+
     width: "100%",
     maxWidth: 400,
   },

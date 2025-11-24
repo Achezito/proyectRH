@@ -12,6 +12,34 @@ import {
 } from "react-native";
 import { Ionicons, FontAwesome, MaterialIcons } from "@expo/vector-icons";
 import { styles } from "./styles";
+import * as ImagePicker from "expo-image-picker";
+import { Image } from "react-native"; // Agregar esto
+import AsyncStorage from "@react-native-async-storage/async-storage";
+const API_BASE = "http://10.194.1.108:5000/formulario"; // Tu URL de Flask
+
+const getAuthToken = async () => {
+  try {
+    const tokenData = await AsyncStorage.getItem(
+      "sb-iltnubfjvyprcdujhkqi-auth-token"
+    );
+    console.log("🔐 Token data from AsyncStorage:", tokenData);
+
+    if (tokenData) {
+      const parsed = JSON.parse(tokenData);
+      console.log("🔐 Parsed token data:", {
+        access_token: parsed.access_token ? "PRESENTE" : "AUSENTE",
+        expires_at: parsed.expires_at,
+        refresh_token: parsed.refresh_token ? "PRESENTE" : "AUSENTE",
+      });
+      return parsed.access_token;
+    }
+    console.log("❌ No se encontró token en AsyncStorage");
+    return "";
+  } catch (error) {
+    console.error("❌ Error obteniendo token:", error);
+    return "";
+  }
+};
 
 // Datos de ejemplo actualizados según el formato
 const mockData = {
@@ -67,16 +95,225 @@ const mockData = {
     },
   ],
 };
+// Mueve el ErrorModal FUERA del componente principal
+const ErrorModal = ({ visible, message, onClose }) => (
+  <Modal visible={visible} animationType="fade" transparent>
+    <View style={styles.modalOverlay}>
+      <View style={[styles.modalContent, { maxWidth: 350 }]}>
+        <View style={styles.modalHeader}>
+          <Text style={[styles.modalTitle, { color: "#ef4444" }]}>Error</Text>
+          <TouchableOpacity onPress={onClose}>
+            <Ionicons name="close" size={24} color="#64748b" />
+          </TouchableOpacity>
+        </View>
+        <Text style={[styles.modalSubtitle, { textAlign: "center" }]}>
+          {message}
+        </Text>
+        <TouchableOpacity
+          style={[styles.primaryButton, { backgroundColor: "#ef4444" }]}
+          onPress={onClose}
+        >
+          <Text style={styles.primaryButtonText}>Entendido</Text>
+        </TouchableOpacity>
+      </View>
+    </View>
+  </Modal>
+);
+
+// Mueve el IncidenciaModal FUERA del componente principal
+const IncidenciaModal = ({
+  visible,
+  onClose,
+  onSubmit,
+  data,
+  setData,
+  justificacionImage,
+  onPickImage,
+  onClearImage,
+}) => (
+  <Modal visible={visible} animationType="slide" transparent>
+    <View style={styles.modalOverlay}>
+      <View style={styles.modalContent}>
+        <View style={styles.modalHeader}>
+          <Text style={styles.modalTitle}>Nueva Incidencia</Text>
+          <TouchableOpacity onPress={onClose}>
+            <Ionicons name="close" size={24} color="#64748b" />
+          </TouchableOpacity>
+        </View>
+
+        <Text style={styles.modalSubtitle}>Tipo de Incidencia</Text>
+        <View style={styles.radioGroup}>
+          {[
+            { value: "retardo", label: "Retardo (11-15 min)" },
+            { value: "retardo_mayor", label: "Retardo mayor (16-20 min)" },
+            { value: "salida_anticipada", label: "Salida anticipada" },
+          ].map((option) => (
+            <TouchableOpacity
+              key={option.value}
+              style={[
+                styles.radioOption,
+                data.tipo === option.value && styles.radioOptionSelected,
+              ]}
+              onPress={() => setData({ ...data, tipo: option.value })}
+            >
+              <Text
+                style={[
+                  styles.radioText,
+                  data.tipo === option.value && styles.radioTextSelected,
+                ]}
+              >
+                {option.label}
+              </Text>
+            </TouchableOpacity>
+          ))}
+        </View>
+
+        <TextInput
+          style={[styles.input, styles.textArea]}
+          placeholder="Motivo de la incidencia"
+          value={data.motivo}
+          onChangeText={(text) => setData({ ...data, motivo: text })}
+          multiline
+          numberOfLines={3}
+          placeholderTextColor="#94a3b8"
+        />
+
+        <TextInput
+          style={styles.input}
+          placeholder="Fecha (YYYY-MM-DD)"
+          value={data.fecha}
+          onChangeText={(text) => setData({ ...data, fecha: text })}
+          placeholderTextColor="#94a3b8"
+        />
+
+        {(data.tipo === "retardo" || data.tipo === "retardo_mayor") && (
+          <TextInput
+            style={styles.input}
+            placeholder="Hora de entrada (HH:MM)"
+            value={data.horaEntrada}
+            onChangeText={(text) => setData({ ...data, horaEntrada: text })}
+            placeholderTextColor="#94a3b8"
+          />
+        )}
+
+        {data.tipo === "salida_anticipada" && (
+          <TextInput
+            style={styles.input}
+            placeholder="Hora de salida (HH:MM)"
+            value={data.horaSalida}
+            onChangeText={(text) => setData({ ...data, horaSalida: text })}
+            placeholderTextColor="#94a3b8"
+          />
+        )}
+
+        <Text style={styles.modalSubtitle}>
+          Justificación con Imagen (Opcional)
+        </Text>
+
+        <TouchableOpacity style={styles.imageButton} onPress={onPickImage}>
+          <Ionicons name="image-outline" size={20} color="#4f46e5" />
+          <Text style={styles.imageButtonText}>Seleccionar de Galería</Text>
+        </TouchableOpacity>
+
+        {justificacionImage && (
+          <View style={styles.imagePreviewContainer}>
+            <Image
+              source={{ uri: justificacionImage.uri }}
+              style={styles.imagePreview}
+            />
+            <TouchableOpacity
+              style={styles.removeImageButton}
+              onPress={onClearImage}
+            >
+              <Ionicons name="close-circle" size={24} color="#ef4444" />
+            </TouchableOpacity>
+          </View>
+        )}
+
+        <TouchableOpacity style={styles.primaryButton} onPress={onSubmit}>
+          <Text style={styles.primaryButtonText}>Registrar Incidencia</Text>
+        </TouchableOpacity>
+      </View>
+    </View>
+  </Modal>
+);
 
 const IncidenciasTab = ({ docenteId, userData }) => {
   const [incidencias, setIncidencias] = useState([]);
   const [diasEconomicos, setDiasEconomicos] = useState([]);
   const [permisosEspeciales, setPermisosEspeciales] = useState([]);
+  const showError = (message) => {
+    setErrorMessage(message);
+    setShowErrorModal(true);
+  };
+
+  const resetIncidenciaForm = () => {
+    setNuevaIncidencia({
+      tipo: "retardo",
+      motivo: "",
+      fecha: new Date().toISOString().split("T")[0],
+      horaEntrada: "",
+      horaSalida: "",
+      minutos: 0,
+    });
+    setJustificacionImage(null);
+  };
+
+  const pickImage = async () => {
+    try {
+      const { status } =
+        await ImagePicker.requestMediaLibraryPermissionsAsync();
+      if (status !== "granted") {
+        showError("Permisos de galería denegados");
+        return;
+      }
+
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: "images", // ← String en lugar de constante
+        allowsEditing: true,
+        aspect: [4, 3],
+        quality: 0.8,
+      });
+
+      console.log("📸 Resultado de ImagePicker:", result);
+
+      if (!result.canceled && result.assets && result.assets.length > 0) {
+        const image = result.assets[0];
+        console.log("🖼️ Imagen seleccionada:", {
+          uri: image.uri,
+          width: image.width,
+          height: image.height,
+          type: image.type,
+          fileName: image.fileName,
+          fileSize: image.fileSize,
+        });
+
+        setJustificacionImage(image);
+
+        if (image.uri) {
+          console.log("✅ URI de imagen válida:", image.uri);
+        } else {
+          console.log("❌ URI de imagen no válida");
+        }
+      } else {
+        console.log("❌ Usuario canceló la selección o no hay assets");
+        setJustificacionImage(null);
+      }
+    } catch (error) {
+      console.log("❌ Error en pickImage:", error);
+      showError("Error al seleccionar la imagen");
+    }
+  };
+
+  // Elimina completamente la función takePhoto
 
   // Modales
   const [showIncidenciaModal, setShowIncidenciaModal] = useState(false);
   const [showDiaEconomicoModal, setShowDiaEconomicoModal] = useState(false);
   const [showCumpleanosModal, setShowCumpleanosModal] = useState(false);
+  const [errorMessage, setErrorMessage] = useState("");
+  const [showErrorModal, setShowErrorModal] = useState(false);
+  const [justificacionImage, setJustificacionImage] = useState(null);
   const [showPermisoEspecialModal, setShowPermisoEspecialModal] =
     useState(false);
 
@@ -121,89 +358,305 @@ const IncidenciasTab = ({ docenteId, userData }) => {
     loadIncidenciasData();
   }, []);
 
-  const loadIncidenciasData = () => {
-    setIncidencias(mockData.incidencias);
-    setDiasEconomicos(mockData.diasEconomicos);
-    setPermisosEspeciales(mockData.permisosEspeciales);
+  const loadIncidenciasData = async () => {
+    try {
+      const token = await getAuthToken();
+      const headers = {
+        Authorization: `Bearer ${token}`,
+        "Content-Type": "application/json",
+      };
 
-    const usadas = mockData.diasEconomicos.filter(
-      (d) => d.estado === "aprobado"
-    ).length;
-    const pendientes = mockData.incidencias.filter(
-      (i) => i.estado === "pendiente"
-    ).length;
+      // Cargar datos en paralelo
+      const [incidenciasRes, diasRes, statsRes] = await Promise.all([
+        fetch(`${API_BASE}/incidencias`, { headers }),
+        fetch(`${API_BASE}/dias-economicos`, { headers }),
+        fetch(`${API_BASE}/estadisticas`, { headers }),
+      ]);
 
-    // Calcular límite según tipo de contrato
-    const diasLimite = userData?.tipo_contrato === "Anual" ? 30 : 15;
+      if (incidenciasRes.ok) {
+        const incidenciasData = await incidenciasRes.json();
+        setIncidencias(incidenciasData);
+      }
 
-    setStats({
-      totalIncidencias: mockData.incidencias.length,
-      incidenciasPendientes: pendientes,
-      diasEconomicosUsados: usadas,
-      diasDisponibles: diasLimite - usadas,
-      diasCumpleanos: 1,
-    });
+      if (diasRes.ok) {
+        const diasData = await diasRes.json();
+        setDiasEconomicos(diasData);
+      }
+
+      if (statsRes.ok) {
+        const statsData = await statsRes.json();
+        setStats(statsData);
+      }
+    } catch (error) {
+      console.error("Error cargando datos:", error);
+      // Mantener datos mock como fallback
+      setIncidencias(mockData.incidencias);
+      setDiasEconomicos(mockData.diasEconomicos);
+      setPermisosEspeciales(mockData.permisosEspeciales);
+    }
   };
-
-  // HANDLERS PARA CADA TIPO DE SOLICITUD
-  const handleNuevaIncidencia = () => {
+  const handleNuevaIncidencia = async () => {
+    // MANTÉN TODAS LAS VALIDACIONES - son importantes
     if (!nuevaIncidencia.motivo.trim()) {
-      Alert.alert("Error", "Por favor ingresa el motivo de la incidencia");
+      showError("Por favor ingresa el motivo de la incidencia");
       return;
     }
 
-    const nueva = {
-      id: incidencias.length + 1,
-      ...nuevaIncidencia,
-      estado: "pendiente",
-    };
+    if (!nuevaIncidencia.fecha) {
+      showError("Por favor ingresa la fecha de la incidencia");
+      return;
+    }
 
-    setIncidencias([...incidencias, nueva]);
-    setStats((s) => ({
-      ...s,
-      totalIncidencias: s.totalIncidencias + 1,
-      incidenciasPendientes: s.incidenciasPendientes + 1,
-    }));
+    // Validación de formato de fecha
+    const fechaRegex = /^\d{4}-\d{2}-\d{2}$/;
+    if (!fechaRegex.test(nuevaIncidencia.fecha)) {
+      showError("Formato de fecha incorrecto. Use YYYY-MM-DD");
+      return;
+    }
 
-    Alert.alert("Éxito", "Incidencia registrada correctamente");
-    setNuevaIncidencia({
-      tipo: "retardo",
-      motivo: "",
-      fecha: new Date().toISOString().split("T")[0],
-      horaEntrada: "",
-      horaSalida: "",
-      minutos: 0,
-    });
-    setShowIncidenciaModal(false);
+    // Validación de horas
+    const isValidTime = (time) => /^([01]?[0-9]|2[0-3]):[0-5][0-9]$/.test(time);
+
+    if (
+      nuevaIncidencia.horaEntrada &&
+      !isValidTime(nuevaIncidencia.horaEntrada)
+    ) {
+      showError("Formato de hora de entrada incorrecto. Use HH:MM (24 horas)");
+      return;
+    }
+
+    if (
+      nuevaIncidencia.horaSalida &&
+      !isValidTime(nuevaIncidencia.horaSalida)
+    ) {
+      showError("Formato de hora de salida incorrecto. Use HH:MM (24 horas)");
+      return;
+    }
+
+    try {
+      const token = await getAuthToken();
+
+      // ✅ USAR JSON EN LUGAR DE FORM DATA
+      const incidenciaData = {
+        tipo: nuevaIncidencia.tipo,
+        motivo: nuevaIncidencia.motivo,
+        fecha: nuevaIncidencia.fecha,
+        minutos: parseInt(nuevaIncidencia.minutos) || 0,
+        horaEntrada: nuevaIncidencia.horaEntrada || null,
+        horaSalida: nuevaIncidencia.horaSalida || null,
+      };
+
+      // ✅ CONVERTIR IMAGEN A BASE64
+      if (justificacionImage && justificacionImage.uri) {
+        console.log("🖼️ Convirtiendo imagen a base64...");
+
+        try {
+          // Leer la imagen como base64
+          const response = await fetch(justificacionImage.uri);
+          const blob = await response.blob();
+
+          return new Promise((resolve, reject) => {
+            const reader = new FileReader();
+            reader.onloadend = async () => {
+              const base64data = reader.result;
+
+              // Agregar datos de imagen al objeto
+              incidenciaData.imagen_data = base64data;
+              incidenciaData.imagen_nombre =
+                justificacionImage.fileName ||
+                `justificacion_${Date.now()}.jpg`;
+              incidenciaData.imagen_tipo =
+                justificacionImage.type || "image/jpeg";
+
+              console.log("📤 Enviando con imagen (base64)");
+              console.log("  Tamaño base64:", base64data.length);
+
+              try {
+                const response = await fetch(`${API_BASE}/incidencias`, {
+                  method: "POST",
+                  headers: {
+                    Authorization: `Bearer ${token}`,
+                    "Content-Type": "application/json",
+                  },
+                  body: JSON.stringify(incidenciaData),
+                });
+
+                const responseText = await response.text();
+                console.log("📥 Respuesta:", responseText);
+
+                if (response.ok) {
+                  const nuevaIncidenciaData = JSON.parse(responseText);
+                  console.log("✅ Incidencia creada:", nuevaIncidenciaData);
+                  setIncidencias((prev) => [...prev, nuevaIncidenciaData]);
+                  Alert.alert(
+                    "✅ Éxito",
+                    "Incidencia registrada correctamente"
+                  );
+                  resetIncidenciaForm();
+                  setShowIncidenciaModal(false);
+                  loadIncidenciasData();
+                } else {
+                  // Manejo de errores...
+                }
+              } catch (error) {
+                console.log("❌ Fetch error:", error);
+                showError("No se pudo conectar con el servidor");
+              }
+            };
+            reader.onerror = reject;
+            reader.readAsDataURL(blob);
+          });
+        } catch (conversionError) {
+          console.log("❌ Error convirtiendo imagen:", conversionError);
+          // Continuar sin imagen
+          await enviarIncidenciaSinImagen(incidenciaData, token);
+        }
+      } else {
+        // Enviar sin imagen
+        await enviarIncidenciaSinImagen(incidenciaData, token);
+      }
+    } catch (error) {
+      console.log("❌ Error general:", error);
+      showError("No se pudo conectar con el servidor");
+    }
   };
+  // Función auxiliar para enviar sin imagen
+  const enviarIncidenciaSinImagen = async (incidenciaData, token) => {
+    try {
+      const response = await fetch(`${API_BASE}/incidencias`, {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(incidenciaData),
+      });
 
-  const handleNuevoDiaEconomico = () => {
+      const responseText = await response.text();
+
+      if (response.ok) {
+        const nuevaIncidenciaData = JSON.parse(responseText);
+        console.log("✅ Incidencia creada (sin imagen):", nuevaIncidenciaData);
+        setIncidencias((prev) => [...prev, nuevaIncidenciaData]);
+        Alert.alert("✅ Éxito", "Incidencia registrada correctamente");
+        resetIncidenciaForm();
+        setShowIncidenciaModal(false);
+        loadIncidenciasData();
+      } else {
+        // Manejo de errores...
+      }
+    } catch (error) {
+      console.log("❌ Error enviando:", error);
+      showError("No se pudo conectar con el servidor");
+    }
+  };
+  const handleNuevoDiaEconomico = async () => {
     if (!nuevoDiaEconomico.motivo.trim()) {
       Alert.alert("Error", "Por favor ingresa el motivo del día económico");
       return;
     }
 
-    if (stats.diasDisponibles <= 0) {
-      Alert.alert("Error", "No tienes días económicos disponibles");
-      return;
+    try {
+      const token = await getAuthToken();
+      const formData = new FormData();
+
+      // ✅ Campos de texto
+      formData.append("tipo", nuevaIncidencia.tipo);
+      formData.append("motivo", nuevaIncidencia.motivo);
+      formData.append("fecha", nuevaIncidencia.fecha);
+      formData.append("minutos", nuevaIncidencia.minutos.toString());
+
+      if (nuevaIncidencia.horaEntrada) {
+        formData.append("horaEntrada", nuevaIncidencia.horaEntrada);
+      }
+      if (nuevaIncidencia.horaSalida) {
+        formData.append("horaSalida", nuevaIncidencia.horaSalida);
+      }
+
+      // ✅ FORMA CORRECTA DE ENVIAR LA IMAGEN
+      console.log("🖼️ DEBUG IMAGEN:", justificacionImage);
+
+      if (justificacionImage && justificacionImage.uri) {
+        console.log("📸 Preparando imagen para enviar...");
+
+        // Extraer nombre de archivo de la URI
+        let fileName = justificacionImage.fileName;
+        if (!fileName) {
+          const uriParts = justificacionImage.uri.split("/");
+          fileName =
+            uriParts[uriParts.length - 1] || `justificacion_${Date.now()}.jpg`;
+        }
+
+        // Determinar el tipo MIME
+        let mimeType = "image/jpeg";
+        if (justificacionImage.type) {
+          mimeType = justificacionImage.type;
+        } else if (fileName.toLowerCase().endsWith(".png")) {
+          mimeType = "image/png";
+        }
+
+        console.log("📤 Información de imagen:");
+        console.log("  URI:", justificacionImage.uri);
+        console.log("  Nombre:", fileName);
+        console.log("  Tipo:", mimeType);
+
+        // ✅ FORMA CORRECTA - Crear el objeto File
+        const imageData = {
+          uri: justificacionImage.uri,
+          name: fileName,
+          type: mimeType,
+        };
+
+        // ✅ AGREGAR COMO ARCHIVO
+        formData.append("justificacion_imagen", imageData);
+        console.log("✅ Imagen agregada correctamente al FormData");
+      } else {
+        console.log("❌ No hay imagen válida para enviar");
+      }
+
+      // ✅ DEBUG FINAL DEL FORM DATA
+      console.log("📦 FormData listo para enviar");
+      console.log("  Campos:", {
+        tipo: nuevaIncidencia.tipo,
+        motivo: nuevaIncidencia.motivo,
+        fecha: nuevaIncidencia.fecha,
+        tieneImagen: !!justificacionImage,
+      });
+
+      const response = await fetch(`${API_BASE}/incidencias`, {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${token}`,
+          // NO Content-Type
+        },
+        body: formData,
+      });
+
+      const responseText = await response.text();
+      console.log("📥 Respuesta del servidor:", responseText);
+
+      if (response.ok) {
+        const nuevaIncidenciaData = JSON.parse(responseText);
+        console.log("✅ Incidencia creada:", nuevaIncidenciaData);
+        setIncidencias((prev) => [...prev, nuevaIncidenciaData]);
+        Alert.alert("✅ Éxito", "Incidencia registrada correctamente");
+        resetIncidenciaForm();
+        setShowIncidenciaModal(false);
+        loadIncidenciasData();
+      } else {
+        let errorMsg = "No se pudo registrar la incidencia";
+        try {
+          const errorData = JSON.parse(responseText);
+          if (errorData.error) errorMsg = errorData.error;
+        } catch (e) {
+          errorMsg = responseText || "Error desconocido";
+        }
+        showError(errorMsg);
+      }
+    } catch (error) {
+      console.log("❌ Fetch error:", error);
+      showError("No se pudo conectar con el servidor");
     }
-
-    const nuevo = {
-      id: diasEconomicos.length + 1,
-      ...nuevoDiaEconomico,
-      estado: "pendiente",
-    };
-
-    setDiasEconomicos([...diasEconomicos, nuevo]);
-    setStats((s) => ({ ...s, diasDisponibles: s.diasDisponibles - 1 }));
-
-    Alert.alert("Éxito", "Día económico solicitado correctamente");
-    setNuevoDiaEconomico({
-      motivo: "",
-      fecha: new Date().toISOString().split("T")[0],
-      tipo: "economico",
-    });
-    setShowDiaEconomicoModal(false);
   };
 
   const handleDiaCumpleanos = () => {
@@ -230,29 +683,49 @@ const IncidenciasTab = ({ docenteId, userData }) => {
     setShowCumpleanosModal(false);
   };
 
-  const handlePermisoEspecial = () => {
+  const handlePermisoEspecial = async () => {
     if (!nuevoPermisoEspecial.motivo.trim()) {
       Alert.alert("Error", "Por favor ingresa el motivo del permiso");
       return;
     }
 
-    const nuevo = {
-      id: permisosEspeciales.length + 1,
-      ...nuevoPermisoEspecial,
-      estado: "pendiente",
-    };
+    try {
+      const token = await getAuthToken(); // ✅ CORREGIDO: agregar await
 
-    setPermisosEspeciales([...permisosEspeciales, nuevo]);
-    Alert.alert("Éxito", "Permiso especial solicitado correctamente");
-    setNuevoPermisoEspecial({
-      tipo: "paternidad",
-      motivo: "",
-      fecha: new Date().toISOString().split("T")[0],
-      duracion: 1,
-    });
-    setShowPermisoEspecialModal(false);
+      const response = await fetch(`${API_BASE}/permisos-especiales`, {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(nuevoPermisoEspecial),
+      });
+
+      if (response.ok) {
+        const nuevoPermisoData = await response.json();
+
+        // Actualizar estado local
+        setPermisosEspeciales((prev) => [...prev, nuevoPermisoData]);
+
+        Alert.alert("Éxito", "Permiso especial solicitado correctamente");
+        setNuevoPermisoEspecial({
+          tipo: "paternidad",
+          motivo: "",
+          fecha: new Date().toISOString().split("T")[0],
+          duracion: 1,
+        });
+        setShowPermisoEspecialModal(false);
+
+        // Recargar datos
+        loadIncidenciasData();
+      } else {
+        const error = await response.json();
+        Alert.alert("Error", error.error || "No se pudo solicitar el permiso");
+      }
+    } catch (error) {
+      Alert.alert("Error", "No se pudo conectar con el servidor");
+    }
   };
-
   const getEstadoColor = (estado) => {
     switch (estado) {
       case "aprobado":
@@ -551,6 +1024,9 @@ const IncidenciasTab = ({ docenteId, userData }) => {
         onSubmit={handleNuevaIncidencia}
         data={nuevaIncidencia}
         setData={setNuevaIncidencia}
+        justificacionImage={justificacionImage}
+        onPickImage={pickImage}
+        onClearImage={() => setJustificacionImage(null)}
       />
 
       <DiaEconomicoModal
@@ -577,94 +1053,16 @@ const IncidenciasTab = ({ docenteId, userData }) => {
         data={nuevoPermisoEspecial}
         setData={setNuevoPermisoEspecial}
       />
+      <ErrorModal
+        visible={showErrorModal}
+        message={errorMessage}
+        onClose={() => setShowErrorModal(false)}
+      />
     </ScrollView>
   );
 };
 
 // Componentes de Modal separados por claridad (los pondré en la siguiente respuesta)
-const IncidenciaModal = ({ visible, onClose, onSubmit, data, setData }) => (
-  <Modal visible={visible} animationType="slide" transparent>
-    <View style={styles.modalOverlay}>
-      <View style={styles.modalContent}>
-        <View style={styles.modalHeader}>
-          <Text style={styles.modalTitle}>Nueva Incidencia</Text>
-          <TouchableOpacity onPress={onClose}>
-            <Ionicons name="close" size={24} color="#64748b" />
-          </TouchableOpacity>
-        </View>
-
-        <Text style={styles.modalSubtitle}>Tipo de Incidencia</Text>
-        <View style={styles.radioGroup}>
-          {[
-            { value: "retardo", label: "Retardo (11-15 min)" },
-            { value: "retardo_mayor", label: "Retardo mayor (16-20 min)" },
-            { value: "salida_anticipada", label: "Salida anticipada" },
-          ].map((option) => (
-            <TouchableOpacity
-              key={option.value}
-              style={[
-                styles.radioOption,
-                data.tipo === option.value && styles.radioOptionSelected,
-              ]}
-              onPress={() => setData({ ...data, tipo: option.value })}
-            >
-              <Text
-                style={[
-                  styles.radioText,
-                  data.tipo === option.value && styles.radioTextSelected,
-                ]}
-              >
-                {option.label}
-              </Text>
-            </TouchableOpacity>
-          ))}
-        </View>
-
-        <TextInput
-          style={[styles.input, styles.textArea]}
-          placeholder="Motivo de la incidencia"
-          value={data.motivo}
-          onChangeText={(text) => setData({ ...data, motivo: text })}
-          multiline
-          numberOfLines={3}
-          placeholderTextColor="#94a3b8"
-        />
-
-        <TextInput
-          style={styles.input}
-          placeholder="Fecha (YYYY-MM-DD)"
-          value={data.fecha}
-          onChangeText={(text) => setData({ ...data, fecha: text })}
-          placeholderTextColor="#94a3b8"
-        />
-
-        {(data.tipo === "retardo" || data.tipo === "retardo_mayor") && (
-          <TextInput
-            style={styles.input}
-            placeholder="Hora de entrada (HH:MM)"
-            value={data.horaEntrada}
-            onChangeText={(text) => setData({ ...data, horaEntrada: text })}
-            placeholderTextColor="#94a3b8"
-          />
-        )}
-
-        {data.tipo === "salida_anticipada" && (
-          <TextInput
-            style={styles.input}
-            placeholder="Hora de salida (HH:MM)"
-            value={data.horaSalida}
-            onChangeText={(text) => setData({ ...data, horaSalida: text })}
-            placeholderTextColor="#94a3b8"
-          />
-        )}
-
-        <TouchableOpacity style={styles.primaryButton} onPress={onSubmit}>
-          <Text style={styles.primaryButtonText}>Registrar Incidencia</Text>
-        </TouchableOpacity>
-      </View>
-    </View>
-  </Modal>
-);
 
 // Continuación de IncidenciasTab.js - Componentes Modal
 
