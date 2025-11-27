@@ -8,7 +8,7 @@ import {
   Alert,
 } from "react-native";
 import { MaterialIcons, Feather } from "@expo/vector-icons";
-import { styles } from "../styles";
+import { styles } from "./styles";
 
 const ChangePasswordCard = ({ docenteId }) => {
   const [changingPassword, setChangingPassword] = useState(false);

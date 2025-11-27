@@ -543,8 +543,7 @@ def activar_cuenta_docente(credencial, email):
                 "estatus": "activo",
                 "tipodocente_id": tipodocente_id,  # ← CORREGIDO: usar tipodocente_id
                 "tipo_colaborador": tipo_colaborador,
-                "aprobado_por": None,
-                "fecha_aprobacion": "now()"
+               
             }
             
             # Solo actualizar tipo_colaborador si no existe o es diferente

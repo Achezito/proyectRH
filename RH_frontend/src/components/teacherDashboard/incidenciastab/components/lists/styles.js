@@ -58,4 +58,29 @@ export const styles = StyleSheet.create({
     color: "#64748b",
     textAlign: "center",
   },
+
+  listItemHeader: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "flex-start",
+    marginBottom: 8,
+  },
+
+  headerRight: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+  },
+
+  deleteButton: {
+    padding: 4,
+    borderRadius: 6,
+    backgroundColor: "#fef2f2",
+  },
+
+  lockedIcon: {
+    padding: 4,
+    borderRadius: 6,
+    backgroundColor: "#f1f5f9",
+  },
 });

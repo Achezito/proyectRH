@@ -153,21 +153,7 @@ def obtener_incidencias(user):
 def crear_incidencia(user):
     try:
         print(f"🎯 CREANDO INCIDENCIA - DEBUG COMPLETO")
-        print(f"📥 Content-Type: {request.content_type}")
-        
-        # DETERMINAR SI ES JSON O FORM DATA
-        data = {}
-        
-        if request.content_type and 'application/json' in request.content_type:
-            data = request.get_json()
-            print(f"📥 JSON data recibido")
-        else:
-            try:
-                data = request.get_json() or request.form
-            except:
-                data = request.form
-        
-        print(f"🔍 CAMPOS RECIBIDOS: {list(data.keys())}")
+        data = request.get_json()
         
         # Validaciones básicas
         if not data.get("fecha"):
@@ -177,7 +163,11 @@ def crear_incidencia(user):
         if not data.get("tipo"):
             return jsonify({"error": "El tipo de incidencia es requerido"}), 400
         
-        # Manejo de imágenes
+        # DEBUG: Verificar horas
+        print(f"🕒 HORA ENTRADA: {data.get('horaEntrada')}")
+        print(f"🕒 HORA SALIDA: {data.get('horaSalida')}")
+        
+        # Manejo de imágenes con Supabase Storage - VERSIÓN CORREGIDA
         justificacion_text = "Sin evidencia adjunta"
         imagen_url = None
         
@@ -186,85 +176,95 @@ def crear_incidencia(user):
         imagen_tipo = data.get("imagen_tipo")
         
         if imagen_data and imagen_nombre:
-            print(f"🖼️ PROCESANDO IMAGEN DESDE JSON")
-            print(f"   📝 Nombre original: {imagen_nombre}")
-            print(f"   📝 Tipo: {imagen_tipo}")
+            print(f"🖼️ PROCESANDO IMAGEN PARA SUPABASE STORAGE")
             
             try:
-                # Limpiar nombre de archivo (quitar emojis y caracteres especiales)
+                # 1. CONFIGURAR BUCKET
+                bucket_name = "justificaciones"
+                
+                # Verificar y crear bucket si no existe
+                try:
+                    existing_buckets = supabase.storage.list_buckets()
+                    bucket_names = [bucket.name for bucket in existing_buckets]
+                    print(f"🪣 Buckets existentes: {bucket_names}")
+                    
+                    if bucket_name not in bucket_names:
+                        print(f"🆕 Creando bucket: {bucket_name}")
+                        create_result = supabase.storage.create_bucket(
+                            bucket_name,
+                            {
+                                "public": False,  # Cambiar a True si quieres público
+                                "file_size_limit": 5242880,  # 5MB
+                                "allowed_mime_types": ["image/jpeg", "image/png", "image/jpg"]
+                            }
+                        )
+                        print(f"✅ Bucket creado: {create_result}")
+                    else:
+                        print(f"✅ Bucket ya existe: {bucket_name}")
+                        
+                except Exception as bucket_error:
+                    print(f"❌ Error con bucket: {bucket_error}")
+                    # Continuar intentando subir el archivo
+                
+                # 2. PREPARAR ARCHIVO
+                import base64
+                import uuid
+                
+                # Limpiar nombre de archivo
                 import re
                 nombre_limpio = re.sub(r'[^\w\.-]', '_', imagen_nombre)
-                if not nombre_limpio.endswith(('.jpg', '.jpeg', '.png')):
+                if not nombre_limpio.lower().endswith(('.jpg', '.jpeg', '.png')):
                     nombre_limpio += '.jpg'
                 
-                print(f"   📝 Nombre limpio: {nombre_limpio}")
+                # Generar nombre único
+                file_extension = os.path.splitext(nombre_limpio)[1] or '.jpg'
+                filename = f"docente_{user.get('docente_id')}/{uuid.uuid4()}{file_extension}"
                 
-                # OPCIÓN 1: Intentar con Supabase Storage
+                print(f"📤 Subiendo archivo: {filename}")
+                
+                # Decodificar base64
+                if ',' in imagen_data:
+                    image_bytes = base64.b64decode(imagen_data.split(',')[1])
+                else:
+                    image_bytes = base64.b64decode(imagen_data)
+                
+                # Determinar tipo MIME
+                mime_type = imagen_tipo or "image/jpeg"
+                if mime_type == "image":
+                    mime_type = "image/jpeg"
+                
+                print(f"   📝 Tipo MIME: {mime_type}")
+                print(f"   📏 Tamaño: {len(image_bytes)} bytes")
+                
+                # 3. SUBIR A SUPABASE STORAGE
+                print("🔼 Iniciando upload a Supabase Storage...")
+                
+                upload_result = supabase.storage.from_(bucket_name).upload(
+                    file=image_bytes,
+                    path=filename,
+                    file_options={"content-type": mime_type}
+                )
+                
+                print(f"📦 Resultado del upload: {upload_result}")
+                
+                if upload_result:
+                    # Obtener URL pública
+                    public_url_response = supabase.storage.from_(bucket_name).get_public_url(filename)
+                    imagen_url = str(public_url_response)
+                    justificacion_text = imagen_url
+                    print(f"✅ Imagen subida exitosamente: {imagen_url}")
+                else:
+                    print("❌ Upload result vacío o falso")
+                    raise Exception("No se pudo subir la imagen")
+                    
+            except Exception as storage_error:
+                print(f"❌ Error en Supabase Storage: {storage_error}")
+                import traceback
+                print(f"🔍 Traceback completo: {traceback.format_exc()}")
+                
+                # Fallback a almacenamiento local
+                print("🔄 Usando fallback local...")
                 try:
-                    bucket_name = "justificaciones"
-                    
-                    # Verificar si el bucket existe
-                    try:
-                        existing_buckets = supabase.storage.list_buckets()
-                        bucket_names = [bucket.name for bucket in existing_buckets]
-                        print(f"🪣 Buckets existentes: {bucket_names}")
-                        
-                        if bucket_name not in bucket_names:
-                            print(f"🆕 Creando bucket: {bucket_name}")
-                            # Crear bucket con parámetros correctos
-                            create_result = supabase.storage.create_bucket(bucket_name, {
-                                "public": True,
-                                "file_size_limit": 5242880,
-                                "allowed_mime_types": ["image/jpeg", "image/png", "image/gif"]
-                            })
-                            print(f"✅ Bucket creado: {create_result}")
-                        else:
-                            print(f"✅ Bucket ya existe: {bucket_name}")
-                            
-                    except Exception as bucket_error:
-                        print(f"⚠️ Error verificando bucket: {bucket_error}")
-                        # Continuar sin bucket
-                    
-                    # Generar nombre único para el archivo
-                    file_extension = os.path.splitext(nombre_limpio)[1] or '.jpg'
-                    filename = f"docente_{user.get('docente_id')}/{uuid.uuid4()}{file_extension}"
-                    
-                    print(f"📤 Subiendo a Supabase Storage: {filename}")
-                    
-                    # Decodificar base64
-                    import base64
-                    if ',' in imagen_data:
-                        image_bytes = base64.b64decode(imagen_data.split(',')[1])
-                    else:
-                        image_bytes = base64.b64decode(imagen_data)
-                    
-                    # Determinar tipo MIME correcto
-                    mime_type = imagen_tipo
-                    if not mime_type or mime_type == "image":
-                        mime_type = "image/jpeg"
-                    
-                    print(f"   📝 Tipo MIME final: {mime_type}")
-                    print(f"   📏 Tamaño bytes: {len(image_bytes)}")
-                    
-                    # Subir a Supabase Storage
-                    upload_result = supabase.storage.from_(bucket_name).upload(
-                        filename,
-                        image_bytes,
-                        {"content-type": mime_type}
-                    )
-                    
-                    if upload_result.data:
-                        imagen_url = supabase.storage.from_(bucket_name).get_public_url(filename)
-                        justificacion_text = imagen_url
-                        print(f"✅ Imagen subida a Storage: {imagen_url}")
-                    else:
-                        print("❌ Error subiendo a Storage, usando fallback local")
-                        raise Exception("Fallback a local")
-                        
-                except Exception as storage_error:
-                    print(f"🔄 Fallback a almacenamiento local: {storage_error}")
-                    
-                    # OPCIÓN 2: Guardar localmente como fallback
                     upload_dir = "uploads/justificaciones"
                     if not os.path.exists(upload_dir):
                         os.makedirs(upload_dir)
@@ -272,7 +272,6 @@ def crear_incidencia(user):
                     filename = f"docente_{user.get('docente_id')}_{uuid.uuid4()}.jpg"
                     filepath = os.path.join(upload_dir, filename)
                     
-                    # Guardar archivo
                     with open(filepath, 'wb') as f:
                         if ',' in imagen_data:
                             image_bytes = base64.b64decode(imagen_data.split(',')[1])
@@ -283,18 +282,15 @@ def crear_incidencia(user):
                     imagen_url = f"http://10.194.1.108:5000/uploads/justificaciones/{filename}"
                     justificacion_text = imagen_url
                     print(f"💾 Imagen guardada localmente: {filepath}")
-                    
-            except Exception as upload_error:
-                print(f"❌ Error procesando imagen: {upload_error}")
-                import traceback
-                print(f"🔍 Traceback: {traceback.format_exc()}")
-                justificacion_text = f"Error procesando imagen"
+                except Exception as local_error:
+                    print(f"❌ Error también en fallback local: {local_error}")
+                    justificacion_text = "Error procesando imagen"
         else:
             print("📝 No se recibieron datos de imagen")
         
-        print(f"📝 JUSTIFICACIÓN FINAL: {justificacion_text}")
+        # 4. INSERTAR EN LA BASE DE DATOS
+        print("📤 INSERTANDO INCIDENCIA EN BD...")
         
-        # Preparar datos para la base de datos
         incidencia_data = {
             "docente_id": user.get("docente_id"),
             "tipo_incidencia": data.get("tipo"),
@@ -308,7 +304,7 @@ def crear_incidencia(user):
             "justificaciones": justificacion_text
         }
         
-        print(f"📤 INSERTANDO EN BD...")
+        print(f"📝 DATOS PARA BD: {incidencia_data}")
         
         result = supabase.table("INCIDENCIAS").insert(incidencia_data).execute()
         
@@ -329,6 +325,96 @@ def crear_incidencia(user):
         print(f"🔍 TRACEBACK: {traceback.format_exc()}")
         return jsonify({"error": f"Error interno: {str(e)}"}), 500
 
+@bp.route("/incidencias/<int:incidencia_id>", methods=["DELETE"])
+@login_required
+def eliminar_incidencia(user, incidencia_id):
+    try:
+        print(f"🗑️ Intentando eliminar incidencia {incidencia_id}")
+        
+        # Verificar que la incidencia existe y pertenece al usuario
+        incidencia = supabase.table("INCIDENCIAS")\
+            .select("id, docente_id, estado, justificaciones")\
+            .eq("id", incidencia_id)\
+            .execute()
+        
+        if not incidencia.data:
+            return jsonify({"error": "Incidencia no encontrada"}), 404
+            
+        incidencia_data = incidencia.data[0]
+        
+        # Verificar que la incidencia pertenece al usuario
+        if incidencia_data["docente_id"] != user.get("docente_id"):
+            return jsonify({"error": "No autorizado para eliminar esta incidencia"}), 403
+            
+        # VERIFICAR ESTADO - NO PERMITIR ELIMINAR SI ESTÁ APROBADO
+        if incidencia_data["estado"].lower() == "aprobado":
+            return jsonify({"error": "No se puede eliminar una incidencia aprobada"}), 400
+            
+        # Solo permitir eliminar incidencias pendientes
+        if incidencia_data["estado"] != "pendiente":
+            return jsonify({"error": "Solo se pueden eliminar incidencias pendientes"}), 400
+        
+        # Eliminar la incidencia
+        result = supabase.table("INCIDENCIAS")\
+            .delete()\
+            .eq("id", incidencia_id)\
+            .execute()
+        
+        if not result.data:
+            return jsonify({"error": "No se pudo eliminar la incidencia"}), 500
+        
+        # Opcional: Eliminar imagen del storage si existe
+        justificacion_url = incidencia_data.get("justificaciones")
+        if justificacion_url and "supabase.co/storage" in justificacion_url:
+            try:
+                # Extraer nombre del archivo de la URL
+                filename = justificacion_url.split("/")[-1]
+                bucket_name = "justificaciones"
+                supabase.storage.from_(bucket_name).remove([filename])
+                print(f"✅ Imagen eliminada del storage: {filename}")
+            except Exception as storage_error:
+                print(f"⚠️ Error eliminando imagen del storage: {storage_error}")
+        
+        print(f"✅ Incidencia {incidencia_id} eliminada correctamente")
+        return jsonify({"mensaje": "Incidencia eliminada correctamente"}), 200
+        
+    except Exception as e:
+        print(f"❌ Error eliminando incidencia: {str(e)}")
+        return jsonify({"error": f"Error interno: {str(e)}"}), 500
+@bp.route("/configurar-storage", methods=["GET"])
+def configurar_storage():
+    """Endpoint para verificar y configurar Supabase Storage"""
+    try:
+        bucket_name = "justificaciones"
+        
+        # Verificar buckets existentes
+        existing_buckets = supabase.storage.list_buckets()
+        bucket_names = [bucket.name for bucket in existing_buckets]
+        
+        print(f"🪣 Buckets existentes: {bucket_names}")
+        
+        if bucket_name not in bucket_names:
+            print(f"🆕 Creando bucket: {bucket_name}")
+            create_result = supabase.storage.create_bucket(
+                bucket_name,
+                {
+                    "public": True,  # Para que las URLs sean accesibles
+                    "file_size_limit": 5242880,
+                    "allowed_mime_types": ["image/jpeg", "image/png", "image/jpg"]
+                }
+            )
+            return jsonify({
+                "mensaje": f"Bucket '{bucket_name}' creado exitosamente",
+                "resultado": str(create_result)
+            }), 200
+        else:
+            return jsonify({
+                "mensaje": f"Bucket '{bucket_name}' ya existe",
+                "buckets_existentes": bucket_names
+            }), 200
+            
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
 # AGREGAR ESTA RUTA PARA SERVIR ARCHIVOS
 @bp.route('/uploads/justificaciones/<filename>')
 def servir_justificacion(filename):

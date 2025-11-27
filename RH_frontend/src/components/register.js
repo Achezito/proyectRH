@@ -44,7 +44,7 @@ export default function RegisterPage() {
     setIsLoading(true);
 
     try {
-      const response = await fetch("http://10.194.1.108:5000/auth/register", {
+      const response = await fetch("http://10.25.30.142:5000/auth/register", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ email, password }),

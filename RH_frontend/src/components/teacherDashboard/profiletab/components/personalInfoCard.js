@@ -1,7 +1,7 @@
 import React from "react";
 import { View, Text, TextInput } from "react-native";
 import { MaterialIcons } from "@expo/vector-icons";
-import { styles } from "../styles";
+import { styles } from "./styles";
 
 const PersonalInfoCard = ({ userData }) => {
   const formData = {

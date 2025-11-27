@@ -38,7 +38,7 @@ export default function UsuariosScreen() {
 
     try {
       const res = await fetch(
-        "http://10.194.1.108:5000/admin/preview-docentes",
+        "http://10.25.30.142:5000/admin/preview-docentes",
         {
           method: "POST",
           body: formData,
@@ -65,7 +65,7 @@ export default function UsuariosScreen() {
 
     try {
       const res = await fetch(
-        "http://10.194.1.108:5000/admin/confirmar-docentes",
+        "http://10.25.30.142:5000/admin/confirmar-docentes",
         {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -102,7 +102,7 @@ export default function UsuariosScreen() {
       }
 
       const response = await fetch(
-        "http://10.194.1.108:5000/admin/generar-csv-docentes",
+        "http://10.25.30.142:5000/admin/generar-csv-docentes",
         {
           method: "POST",
           headers: { "Content-Type": "application/json" },

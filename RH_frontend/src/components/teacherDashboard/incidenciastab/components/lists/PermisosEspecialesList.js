@@ -1,7 +1,7 @@
 import React from "react";
 import { View, Text, FlatList } from "react-native";
 import { Ionicons, MaterialIcons } from "@expo/vector-icons";
-import { styles } from "../styles";
+import { styles } from "./styles";
 import { formatDate } from "../../shared/utils/dateFormatter";
 
 const PermisoEspecialItem = ({ item }) => {

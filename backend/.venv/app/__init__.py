@@ -3,7 +3,7 @@ from flask_cors import CORS
 from dotenv import load_dotenv
 import os
 
-# CARGAR VARIABLES DE ENTORNO
+# CARGAR VARIABLES DE ENTORN
 load_dotenv()
 
 def create_app():
@@ -36,11 +36,17 @@ def create_app():
     from .routes.admin import admin_bp
     app.register_blueprint(admin_bp, url_prefix="/admin")
     
+    from .routes.cumpleaños import cumpleaños_bp
+    app.register_blueprint(cumpleaños_bp, url_prefix="/cumpleaños")
+    
     from .routes.docente import teacher_bp
     app.register_blueprint(teacher_bp, url_prefix="/docente")
     
     from app.routes.formulario import bp as bp_formulario
     app.register_blueprint(bp_formulario, url_prefix='/formulario')
+    
+    from app.routes.dias_economicos import dias_economicos_bp
+    app.register_blueprint(dias_economicos_bp, url_prefix='/dias_economicos')
 
     # Mostrar rutas registradas
     print("=== 🗺️ RUTAS REGISTRADAS ===")
