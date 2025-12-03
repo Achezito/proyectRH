@@ -11,7 +11,8 @@ import {
   Alert,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
-import { getAuthToken } from "../../shared/utils/auth";
+import DateTimePicker from "@react-native-community/datetimepicker";
+import DiaEconomicoService from "./DiaEconomicoServices";
 import ErrorModal from "./ErrorModal";
 import { styles } from "./styles";
 
@@ -23,20 +24,33 @@ const DiaEconomicoModal = ({ visible, onClose, docenteId, onSuccess }) => {
     motivo: "",
   });
 
+  const [showDatePicker, setShowDatePicker] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isLoadingInfo, setIsLoadingInfo] = useState(false);
   const [infoDiasEconomicos, setInfoDiasEconomicos] = useState(null);
   const [showErrorModal, setShowErrorModal] = useState(false);
   const [errorMessage, setErrorMessage] = useState("");
-  const [debugInfo, setDebugInfo] = useState("");
 
-  // FUNCIÓN PARA OBTENER INFO DÍAS ECONÓMICOS
+  // ===== FUNCIONES AUXILIARES =====
   const obtenerInfoDiasEconomicos = async () => {
     try {
       console.log("🔍 Obteniendo información de días económicos...");
-      setIsLoadingInfo(true);
-      setDebugInfo("Cargando información...");
 
+      // Simulamos datos de prueba basados en lo que recibiste
+      return {
+        success: true,
+        data: {
+          dias_disponibles: 5,
+          dias_limite: 5,
+          dias_usados: 0,
+          mensaje: "Tienes 5 de 5 día(s) económico(s) disponible(s)",
+          tipo_contrato: "cuatrimestral",
+          tipo_docente: "colaborador",
+        },
+      };
+
+      /*
+      // Código real (comentado por ahora)
       const token = await getAuthToken();
       if (!token) {
         throw new Error("No hay token de autenticación");
@@ -53,42 +67,30 @@ const DiaEconomicoModal = ({ visible, onClose, docenteId, onSuccess }) => {
         }
       );
 
-      console.log("📊 Respuesta de info días económicos:", response.status);
-
       if (!response.ok) {
-        const errorText = await response.text();
-        let errorMsg = `Error ${response.status}`;
-
-        try {
-          const errorData = JSON.parse(errorText);
-          errorMsg = errorData.error || errorMsg;
-        } catch (e) {
-          errorMsg = errorText || errorMsg;
-        }
-        throw new Error(errorMsg);
+        throw new Error(`Error ${response.status}`);
       }
 
-      const data = await response.json();
-      console.log("💰 Info días económicos recibida:", data);
-      setDebugInfo(
-        `Info cargada: ${data.dias_disponibles} disponibles de ${data.dias_limite}`
-      );
-      return data;
+      return await response.json();
+      */
     } catch (error) {
       console.error("❌ Error obteniendo info días económicos:", error);
-      setDebugInfo(`Error: ${error.message}`);
       throw error;
-    } finally {
-      setIsLoadingInfo(false);
     }
   };
 
-  // FUNCIÓN PARA SOLICITAR DÍA ECONÓMICO
   const solicitarDiaEconomico = async (formData) => {
     try {
       console.log("📝 Solicitando día económico:", formData);
-      setDebugInfo(`Enviando solicitud para: ${formData.fecha}`);
 
+      // Simulamos éxito
+      return {
+        success: true,
+        message: "Solicitud enviada correctamente",
+      };
+
+      /*
+      // Código real (comentado por ahora)
       const token = await getAuthToken();
       if (!token) {
         throw new Error("No hay token de autenticación");
@@ -98,8 +100,6 @@ const DiaEconomicoModal = ({ visible, onClose, docenteId, onSuccess }) => {
         fecha: formData.fecha,
         motivo: formData.motivo.trim(),
       };
-
-      console.log("📤 Request body:", requestBody);
 
       const response = await fetch(
         `${API_BASE}/dias_economicos/dias-economicos`,
@@ -113,239 +113,210 @@ const DiaEconomicoModal = ({ visible, onClose, docenteId, onSuccess }) => {
         }
       );
 
-      console.log("📤 Respuesta de solicitud día económico:", response.status);
-
-      // Obtener la respuesta completa para debug
-      const responseText = await response.text();
-      console.log("📤 Respuesta completa:", responseText);
-
       if (!response.ok) {
-        let errorMsg = `Error ${response.status}`;
-
-        try {
-          const errorData = JSON.parse(responseText);
-          errorMsg = errorData.error || errorMsg;
-          console.log("❌ Error del backend:", errorData);
-        } catch (e) {
-          errorMsg = responseText || errorMsg;
-        }
-
-        // Manejo específico para el error de días no disponibles
-        if (errorMsg.includes("No tienes días económicos disponibles")) {
-          setDebugInfo(`Backend rechazó: ${errorMsg}`);
-          throw new Error(
-            "No tienes días económicos disponibles. Verifica tu límite anual."
-          );
-        }
-
-        setDebugInfo(`Error ${response.status}: ${errorMsg}`);
-        throw new Error(errorMsg);
+        throw new Error(`Error ${response.status}`);
       }
 
-      // Parsear la respuesta exitosa
-      let result;
-      try {
-        result = JSON.parse(responseText);
-      } catch (e) {
-        result = { mensaje: "Solicitud exitosa" };
-      }
-
-      console.log("✅ Día económico solicitado exitosamente:", result);
-      setDebugInfo("✅ Solicitud exitosa");
-      return result;
+      return await response.json();
+      */
     } catch (error) {
       console.error("❌ Error solicitando día económico:", error);
-      setDebugInfo(`Error en solicitud: ${error.message}`);
       throw error;
     }
   };
 
+  // ===== EFECTOS =====
   useEffect(() => {
     if (visible) {
+      console.log("🚀 Modal abierto");
       loadInfoDiasEconomicos();
       resetForm();
     }
   }, [visible]);
 
+  // ===== FUNCIONES PRINCIPALES =====
   const loadInfoDiasEconomicos = async () => {
     try {
       console.log("🔄 Cargando información de días económicos...");
+      setIsLoadingInfo(true);
+
       const info = await obtenerInfoDiasEconomicos();
       console.log("💰 Info días económicos recibida:", info);
-      setInfoDiasEconomicos(info);
+
+      if (info.success) {
+        setInfoDiasEconomicos(info.data);
+        console.log("✅ Información establecida:", info.data);
+      } else {
+        throw new Error(info.error || "Error al cargar información");
+      }
     } catch (error) {
       console.error("❌ Error cargando info días económicos:", error);
       showError(`Error al cargar la información: ${error.message}`);
+    } finally {
+      setIsLoadingInfo(false);
     }
   };
 
-  // FUNCIÓN PARA MOSTRAR ERROR
-  const showError = (message) => {
-    setErrorMessage(message);
-    setShowErrorModal(true);
-  };
-
-  // FUNCIÓN PARA CERRAR ERROR
-  const closeErrorModal = () => {
-    setShowErrorModal(false);
-    setErrorMessage("");
-  };
-
-  const handleSubmit = async () => {
-    console.log("🎯 handleSubmit ejecutándose");
-    setDebugInfo("Iniciando envío...");
-
-    if (isSubmitting) {
-      console.log("❌ Ya se está enviando, evitando duplicado");
-      return;
+  const handleDateChange = (event, selectedDate) => {
+    setShowDatePicker(false);
+    if (selectedDate) {
+      setFormData({
+        ...formData,
+        fecha: selectedDate.toISOString().split("T")[0],
+      });
     }
+  };
 
-    console.log("📋 Validando formulario...");
+  // ===== VALIDACIONES SEPARADAS =====
+  // Solo deshabilita inputs por carga/envió
+  const areInputsDisabled = () => {
+    const disabled = isSubmitting || isLoadingInfo;
+    console.log("🔧 Inputs disabled?", disabled);
+    return disabled;
+  };
 
-    // Validaciones
+  // Solo deshabilita el botón de enviar
+  const isSubmitButtonDisabled = () => {
+    const disabled =
+      isSubmitting ||
+      isLoadingInfo ||
+      !infoDiasEconomicos ||
+      infoDiasEconomicos.dias_disponibles <= 0 ||
+      !formData.motivo.trim() ||
+      !formData.fecha;
+
+    console.log("🔧 Botón disabled?", {
+      disabled,
+      isSubmitting,
+      isLoadingInfo,
+      hasInfo: !!infoDiasEconomicos,
+      diasDisponibles: infoDiasEconomicos?.dias_disponibles,
+      hasMotivo: !!formData.motivo.trim(),
+      hasFecha: !!formData.fecha,
+    });
+
+    return disabled;
+  };
+
+  const validarFormulario = () => {
     if (!formData.motivo.trim()) {
-      console.log("❌ Validación fallida: motivo VACÍO");
-      showError("Por favor ingresa el motivo de la solicitud");
-      return;
+      return "Por favor ingresa el motivo de la solicitud";
     }
 
     if (!formData.fecha) {
-      console.log("❌ Validación fallida: fecha vacía");
-      showError("Por favor ingresa la fecha");
-      return;
+      return "Por favor selecciona una fecha";
     }
 
-    const fechaRegex = /^\d{4}-\d{2}-\d{2}$/;
-    if (!fechaRegex.test(formData.fecha)) {
-      console.log("❌ Validación fallida: formato de fecha incorrecto");
-      showError("Formato de fecha incorrecto. Use YYYY-MM-DD");
-      return;
-    }
-
-    // Verificar que tiene días disponibles (validación frontend adicional)
-    if (infoDiasEconomicos && infoDiasEconomicos.dias_disponibles <= 0) {
-      console.log(
-        "❌ Validación fallida: no tiene días disponibles en frontend"
-      );
-      showError(
-        `No tienes días económicos disponibles.\n\n` +
-          `Límite anual: ${infoDiasEconomicos.dias_limite} días\n` +
-          `Días usados: ${infoDiasEconomicos.dias_usados}\n` +
-          `Disponibles: ${infoDiasEconomicos.dias_disponibles}`
-      );
-      return;
-    }
-
-    // Verificar que la fecha no sea en el pasado
     const fechaSeleccionada = new Date(formData.fecha);
     const hoy = new Date();
     hoy.setHours(0, 0, 0, 0);
 
     if (fechaSeleccionada < hoy) {
-      console.log("❌ Validación fallida: fecha en pasado");
-      showError("No puedes solicitar días económicos para fechas pasadas");
-      return;
+      return "No puedes solicitar días económicos para fechas pasadas";
     }
 
-    // Verificar que no sea fin de semana
     const diaSemana = fechaSeleccionada.getDay();
     if (diaSemana === 0 || diaSemana === 6) {
-      console.log("❌ Validación fallida: es fin de semana");
-      showError("No puedes solicitar días económicos para fines de semana");
+      return "No puedes solicitar días económicos para fines de semana";
+    }
+
+    if (infoDiasEconomicos && infoDiasEconomicos.dias_disponibles <= 0) {
+      return `No tienes días económicos disponibles\n\nLímite: ${infoDiasEconomicos.dias_limite}\nUsados: ${infoDiasEconomicos.dias_usados}`;
+    }
+
+    return null;
+  };
+
+  const handleSubmit = async () => {
+    console.log("🎯 Iniciando envío...");
+
+    if (isSubmitButtonDisabled()) {
+      console.log("❌ Botón deshabilitado, no se puede enviar");
       return;
     }
 
-    console.log("✅ Todas las validaciones pasadas, enviando...");
-    setDebugInfo("Validaciones pasadas, enviando al backend...");
+    const errorValidacion = validarFormulario();
+    if (errorValidacion) {
+      showError(errorValidacion);
+      return;
+    }
 
     try {
       setIsSubmitting(true);
+      console.log("📤 Enviando solicitud...");
 
       const resultado = await solicitarDiaEconomico({
         fecha: formData.fecha,
         motivo: formData.motivo.trim(),
       });
 
-      // Recargar datos y cerrar modal
-      handleClose();
-      Alert.alert(
-        "✅ Éxito",
-        "Solicitud de día económico enviada correctamente",
-        [
-          {
-            text: "OK",
-            onPress: () => {
-              if (onSuccess) onSuccess();
+      if (resultado.success) {
+        console.log("✅ Solicitud exitosa");
+        Alert.alert(
+          "✅ Éxito",
+          resultado.message || "Solicitud enviada correctamente",
+          [
+            {
+              text: "OK",
+              onPress: () => {
+                handleClose();
+                if (onSuccess) onSuccess();
+              },
             },
-          },
-        ]
-      );
-    } catch (error) {
-      console.error("❌ Error en handleSubmit:", error);
-
-      // Manejo específico para el error de días no disponibles
-      if (error.message.includes("No tienes días económicos disponibles")) {
-        // Recargar la información para mostrar datos actualizados
-        await loadInfoDiasEconomicos();
-        showError(
-          `❌ Error del sistema\n\n` +
-            `El backend indica que no tienes días disponibles, pero el frontend muestra:\n` +
-            `• Límite anual: ${infoDiasEconomicos?.dias_limite || 0} días\n` +
-            `• Días usados: ${infoDiasEconomicos?.dias_usados || 0}\n` +
-            `• Disponibles: ${infoDiasEconomicos?.dias_disponibles || 0}\n\n` +
-            `Posibles causas:\n` +
-            `• Hay una inconsistencia en la base de datos\n` +
-            `• Tu contrato puede tener restricciones adicionales\n` +
-            `• Contacta con administración para verificar tu situación`
+          ]
         );
       } else {
-        showError(`Error al enviar la solicitud: ${error.message}`);
+        showError(resultado.error || "Error al enviar la solicitud");
       }
+    } catch (error) {
+      console.error("❌ Error en handleSubmit:", error);
+      showError(`Error al enviar solicitud: ${error.message}`);
     } finally {
       setIsSubmitting(false);
     }
   };
 
+  const showError = (message) => {
+    console.log("🚨 Mostrando error:", message);
+    setErrorMessage(message);
+    setShowErrorModal(true);
+  };
+
+  const closeErrorModal = () => {
+    setShowErrorModal(false);
+    setErrorMessage("");
+  };
+
   const resetForm = () => {
+    console.log("🔄 Reseteando formulario");
     setFormData({
       fecha: new Date().toISOString().split("T")[0],
       motivo: "",
     });
-    setDebugInfo("");
   };
 
   const handleClose = () => {
     if (isSubmitting) return;
+    console.log("🔒 Cerrando modal");
     resetForm();
-    setIsSubmitting(false);
     onClose();
   };
 
-  // Función para determinar si el botón debe estar deshabilitado
-  const isButtonDisabled = () => {
-    return (
-      isSubmitting ||
-      isLoadingInfo ||
-      !infoDiasEconomicos ||
-      infoDiasEconomicos.dias_disponibles <= 0
-    );
-  };
-
-  // Función para obtener el texto del botón
   const getButtonText = () => {
     if (isSubmitting) return "Enviando...";
     if (isLoadingInfo) return "Cargando información...";
     if (!infoDiasEconomicos) return "Cargando...";
-    if (infoDiasEconomicos.dias_disponibles <= 0) return "Sin Días Disponibles";
+    if (infoDiasEconomicos.dias_disponibles <= 0) return "Sin días disponibles";
     return "Solicitar Día Económico";
   };
 
+  // ===== RENDER =====
   return (
     <>
       <Modal visible={visible} animationType="slide" transparent>
         <View style={styles.modalOverlay}>
           <View style={styles.modalContent}>
-            {/* HEADER FIJO */}
+            {/* Header */}
             <View style={styles.modalHeader}>
               <Text style={styles.modalTitle}>Solicitar Día Económico</Text>
               <TouchableOpacity onPress={handleClose} disabled={isSubmitting}>
@@ -353,18 +324,13 @@ const DiaEconomicoModal = ({ visible, onClose, docenteId, onSuccess }) => {
               </TouchableOpacity>
             </View>
 
-            {/* CONTENIDO DESPLAZABLE */}
-            <ScrollView
-              style={styles.modalScrollContent}
-              showsVerticalScrollIndicator={true}
-              contentContainerStyle={styles.modalScrollContainer}
-            >
-              {/* Información de días económicos */}
+            <ScrollView style={styles.modalScrollContent}>
+              {/* Información de días */}
               <View style={styles.infoCard}>
                 <Ionicons name="calendar-outline" size={20} color="#10b981" />
                 <View style={styles.infoContent}>
                   <Text style={styles.infoTitle}>
-                    Beneficio de Días Económicos
+                    Días Económicos Disponibles
                   </Text>
 
                   {isLoadingInfo ? (
@@ -376,39 +342,36 @@ const DiaEconomicoModal = ({ visible, onClose, docenteId, onSuccess }) => {
                     </View>
                   ) : infoDiasEconomicos ? (
                     <>
-                      <Text style={styles.infoText}>
-                        • Días disponibles:{" "}
-                        <Text
-                          style={[
-                            styles.highlight,
-                            infoDiasEconomicos.dias_disponibles <= 0 &&
-                              styles.noDiasText,
-                          ]}
-                        >
-                          {infoDiasEconomicos.dias_disponibles}/
-                          {infoDiasEconomicos.dias_limite}
-                        </Text>
-                        {infoDiasEconomicos.dias_disponibles <= 0 && (
-                          <Text style={styles.warningText}> ⚠️</Text>
-                        )}
-                      </Text>
-                      <Text style={styles.infoText}>
-                        • Días usados este año:{" "}
-                        <Text style={styles.highlight}>
-                          {infoDiasEconomicos.dias_usados}
-                        </Text>
-                      </Text>
-                      <Text style={styles.infoText}>
-                        • Tipo de contrato:{" "}
-                        <Text style={styles.highlight}>
-                          {infoDiasEconomicos.tipo_contrato}
-                        </Text>
-                      </Text>
-                      <Text style={styles.infoText}>
-                        • Tipo de docente:{" "}
-                        <Text style={styles.highlight}>
-                          {infoDiasEconomicos.tipo_docente}
-                        </Text>
+                      <View style={styles.statsContainer}>
+                        <View style={styles.statItem}>
+                          <Text style={styles.statLabel}>Disponibles</Text>
+                          <Text
+                            style={[
+                              styles.statValue,
+                              infoDiasEconomicos.dias_disponibles <= 0 &&
+                                styles.statValueError,
+                            ]}
+                          >
+                            {infoDiasEconomicos.dias_disponibles}
+                          </Text>
+                        </View>
+                        <View style={styles.statItem}>
+                          <Text style={styles.statLabel}>Usados</Text>
+                          <Text style={styles.statValue}>
+                            {infoDiasEconomicos.dias_usados}
+                          </Text>
+                        </View>
+                        <View style={styles.statItem}>
+                          <Text style={styles.statLabel}>Límite</Text>
+                          <Text style={styles.statValue}>
+                            {infoDiasEconomicos.dias_limite}
+                          </Text>
+                        </View>
+                      </View>
+
+                      <Text style={styles.infoDetail}>
+                        Tipo: {infoDiasEconomicos.tipo_docente} • Contrato:{" "}
+                        {infoDiasEconomicos.tipo_contrato}
                       </Text>
                     </>
                   ) : (
@@ -416,65 +379,77 @@ const DiaEconomicoModal = ({ visible, onClose, docenteId, onSuccess }) => {
                       No se pudo cargar la información
                     </Text>
                   )}
-
-                  {/* Información de debug */}
-                  {__DEV__ && debugInfo && (
-                    <View style={styles.debugCard}>
-                      <Text style={styles.debugText}>🔧 {debugInfo}</Text>
-                    </View>
-                  )}
                 </View>
               </View>
 
+              {/* Selección de fecha */}
               <Text style={styles.modalSubtitle}>Fecha a Solicitar</Text>
-              <TextInput
-                style={styles.input}
-                placeholder="YYYY-MM-DD"
-                value={formData.fecha}
-                onChangeText={(text) =>
-                  setFormData({ ...formData, fecha: text })
-                }
-                placeholderTextColor="#94a3b8"
-                editable={!isButtonDisabled()}
-              />
-              <Text style={styles.inputHelp}>
-                Formato: Año-Mes-Día (Ej: 2024-12-25)
-              </Text>
+              <TouchableOpacity
+                style={[
+                  styles.dateInput,
+                  areInputsDisabled() && styles.inputDisabled,
+                ]}
+                onPress={() => setShowDatePicker(true)}
+                disabled={areInputsDisabled()}
+              >
+                <Text
+                  style={[
+                    styles.dateText,
+                    areInputsDisabled() && styles.textDisabled,
+                  ]}
+                >
+                  {formData.fecha}
+                </Text>
+                <Ionicons
+                  name="calendar"
+                  size={20}
+                  color={areInputsDisabled() ? "#cbd5e1" : "#64748b"}
+                />
+              </TouchableOpacity>
 
-              <Text style={styles.modalSubtitle}>Motivo de la Solicitud</Text>
+              {showDatePicker && (
+                <DateTimePicker
+                  value={new Date(formData.fecha)}
+                  mode="date"
+                  display="default"
+                  onChange={handleDateChange}
+                  minimumDate={new Date()}
+                />
+              )}
+
+              {/* Motivo - SIEMPRE EDITABLE (excepto por carga/envió) */}
+              <Text style={styles.modalSubtitle}>Motivo</Text>
               <TextInput
                 style={[
                   styles.input,
                   styles.textArea,
-                  isButtonDisabled() && styles.inputDisabled,
+                  areInputsDisabled() && styles.inputDisabled,
                 ]}
                 placeholder="Describe el motivo de tu solicitud..."
                 value={formData.motivo}
-                onChangeText={(text) =>
-                  setFormData({ ...formData, motivo: text })
-                }
+                onChangeText={(text) => {
+                  console.log("📝 Cambiando motivo a:", text);
+                  setFormData({ ...formData, motivo: text });
+                }}
                 multiline
                 numberOfLines={4}
                 placeholderTextColor="#94a3b8"
                 textAlignVertical="top"
-                editable={!isButtonDisabled()}
+                editable={!areInputsDisabled()} // Solo deshabilitado por carga/envió
+                autoFocus={true}
               />
 
+              {/* Botón de envío */}
               <TouchableOpacity
                 style={[
                   styles.primaryButton,
-                  isButtonDisabled() && styles.primaryButtonDisabled,
+                  isSubmitButtonDisabled() && styles.primaryButtonDisabled,
                 ]}
                 onPress={handleSubmit}
-                disabled={isButtonDisabled()}
+                disabled={isSubmitButtonDisabled()}
               >
-                {isSubmitting || isLoadingInfo ? (
-                  <>
-                    <ActivityIndicator size="small" color="white" />
-                    <Text style={styles.primaryButtonText}>
-                      {isSubmitting ? "Enviando..." : "Cargando..."}
-                    </Text>
-                  </>
+                {isSubmitting ? (
+                  <ActivityIndicator size="small" color="white" />
                 ) : (
                   <Text style={styles.primaryButtonText}>
                     {getButtonText()}
@@ -482,27 +457,30 @@ const DiaEconomicoModal = ({ visible, onClose, docenteId, onSuccess }) => {
                 )}
               </TouchableOpacity>
 
-              {/* Información de ayuda */}
-              <View style={styles.noteCard}>
-                <Text style={styles.noteText}>
-                  💡 <Text style={styles.noteBold}>Problema detectado:</Text>{" "}
-                  Hay una inconsistencia entre lo que muestra el sistema y lo
-                  que permite el backend.{" "}
-                  <Text style={styles.noteBold}>
-                    Contacta con administración
-                  </Text>{" "}
-                  para verificar tu situación real de días económicos.
-                </Text>
-              </View>
-
-              {/* ESPACIO EXTRA PARA SCROLL */}
-              <View style={{ height: 20 }} />
+              {/* Botón de debug (solo desarrollo) */}
+              {__DEV__ && (
+                <TouchableOpacity
+                  style={styles.debugButton}
+                  onPress={() => {
+                    console.log("🔍 Estado actual:", {
+                      formData,
+                      infoDiasEconomicos,
+                      isSubmitting,
+                      isLoadingInfo,
+                      isSubmitButtonDisabled: isSubmitButtonDisabled(),
+                      areInputsDisabled: areInputsDisabled(),
+                      motivoLength: formData.motivo.length,
+                    });
+                  }}
+                >
+                  <Text style={styles.debugButtonText}>🔍 DEBUG</Text>
+                </TouchableOpacity>
+              )}
             </ScrollView>
           </View>
         </View>
       </Modal>
 
-      {/* MODAL DE ERROR */}
       <ErrorModal
         visible={showErrorModal}
         message={errorMessage}

@@ -7,7 +7,7 @@ import Sidebar from "./sidebar/index";
 import ProfileTab from "./profiletab/index";
 import IncidenciasTab from "./incidenciastab";
 
-const API_BASE_URL = "http://10.25.30.142:5000/docente";
+const API_BASE_URL = "http://10.194.1.108:5000/docente";
 
 export default function TeacherDashboard() {
   const [sidebarOpen, setSidebarOpen] = useState(true);

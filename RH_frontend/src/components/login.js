@@ -32,7 +32,7 @@ export default function LoginPage() {
     console.log("Intentando login con:", email);
 
     try {
-      const res = await fetch("http://10.25.30.142:5000/auth/login", {
+      const res = await fetch("http://10.194.1.108:5000/auth/login", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ email, password }),

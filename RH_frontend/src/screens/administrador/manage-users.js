@@ -10,7 +10,7 @@ import {
   ScrollView,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
-import { Sidebar } from "../../components/sidebar";
+
 import Header from "../../components/header";
 
 export default function UsuariosScreen() {
@@ -38,7 +38,7 @@ export default function UsuariosScreen() {
 
     try {
       const res = await fetch(
-        "http://10.25.30.142:5000/admin/preview-docentes",
+        "http://10.194.1.108:5000/admin/preview-docentes",
         {
           method: "POST",
           body: formData,
@@ -65,7 +65,7 @@ export default function UsuariosScreen() {
 
     try {
       const res = await fetch(
-        "http://10.25.30.142:5000/admin/confirmar-docentes",
+        "http://10.194.1.108:5000/admin/confirmar-docentes",
         {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -102,7 +102,7 @@ export default function UsuariosScreen() {
       }
 
       const response = await fetch(
-        "http://10.25.30.142:5000/admin/generar-csv-docentes",
+        "http://10.194.1.108:5000/admin/generar-csv-docentes",
         {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -141,7 +141,6 @@ export default function UsuariosScreen() {
   return (
     <SafeAreaView style={styles.container}>
       <View style={styles.mainWrapper}>
-        <Sidebar />
         <View style={styles.contentWrapper}>
           <Header title="Gestión de Usuarios" />
           <ScrollView style={styles.scrollContainer}>

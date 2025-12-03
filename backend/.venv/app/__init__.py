@@ -42,11 +42,20 @@ def create_app():
     from .routes.docente import teacher_bp
     app.register_blueprint(teacher_bp, url_prefix="/docente")
     
+    from .routes.periodos_bp import periodos_bp
+    app.register_blueprint(periodos_bp)
+    
     from app.routes.formulario import bp as bp_formulario
     app.register_blueprint(bp_formulario, url_prefix='/formulario')
     
     from app.routes.dias_economicos import dias_economicos_bp
     app.register_blueprint(dias_economicos_bp, url_prefix='/dias_economicos')
+    
+    from app.routes.adminDocente import adminDocente_bp
+    app.register_blueprint(adminDocente_bp, url_prefix='/adminDocente')
+    
+    from app.routes.diasEconomicos_bp import diasEconomicos_bp
+    app.register_blueprint(diasEconomicos_bp)
 
     # Mostrar rutas registradas
     print("=== 🗺️ RUTAS REGISTRADAS ===")
