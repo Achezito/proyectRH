@@ -1,0 +1,7 @@
+[build]
+  publish = "web-build"
+  command = "npm run web-build"
+
+[build.environment]
+  NODE_VERSION = "20"          # O la versión que uses localmente
+  PYTHON_VERSION = "3.11"      # Evita 3.13 que Netlify intenta usar
