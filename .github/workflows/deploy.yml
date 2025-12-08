@@ -1,57 +1,56 @@
-﻿name: Deploy to GitHub Pages
+﻿name: "DEPLOY RH FRONTEND"
 
 on:
   push:
     branches: [nuevo]
 
 jobs:
-  build-and-deploy:
+  deploy:
     runs-on: ubuntu-latest
 
     steps:
-      - uses: actions/checkout@v3
+      - name: Checkout code
+        uses: actions/checkout@v3
 
-      - name: Find package.json
-        id: find_package
+      - name: Debug – Show structure
         run: |
-          echo "Buscando package.json..."
-          # Busca en todas partes
-          find . -name "package.json" -type f
-          # Toma el primero que encuentre
-          PKG_PATH=$(find . -name "package.json" -type f | head -1)
-          if [ -z "$PKG_PATH" ]; then
-            echo "ERROR: No se encontró package.json"
-            echo "Estructura actual:"
-            ls -la
-            ls -la */
-            exit 1
-          fi
-          echo "✅ Encontrado en: $PKG_PATH"
-          # Obtiene el directorio
-          PKG_DIR=$(dirname "$PKG_PATH")
-          echo "📁 Directorio: $PKG_DIR"
-          # Guarda para usar en otros steps
-          echo "PKG_DIR=$PKG_DIR" >> $GITHUB_OUTPUT
+          echo "=== Directorio actual ==="
+          pwd
+          echo "=== Contenido ==="
+          ls -la
+          echo "=== Buscando package.json ==="
+          find . -name "package.json" -type f || echo "No se encontró ninguno"
 
       - name: Setup Node.js
         uses: actions/setup-node@v3
         with:
           node-version: "18"
 
+      - name: Set project directory
+        id: setup
+        run: |
+          if [ -f "RH_frontend/package.json" ]; then
+            echo "DIR=RH_frontend" >> $GITHUB_OUTPUT
+            echo "✔ Encontrado package.json en RH_frontend/"
+          else
+            echo "❌ ERROR: No se encontró RH_frontend/package.json"
+            exit 1
+          fi
+
       - name: Install dependencies
         run: |
-          echo "Instalando en: ${{ steps.find_package.outputs.PKG_DIR }}"
-          cd "${{ steps.find_package.outputs.PKG_DIR }}"
+          cd "${{ steps.setup.outputs.DIR }}"
+          echo "📦 Instalando dependencias en: $(pwd)"
           npm install --legacy-peer-deps
 
       - name: Build
         run: |
-          echo "Build en: ${{ steps.find_package.outputs.PKG_DIR }}"
-          cd "${{ steps.find_package.outputs.PKG_DIR }}"
+          cd "${{ steps.setup.outputs.DIR }}"
+          echo "🏗 Ejecutando build en: $(pwd)"
           npm run build
 
       - name: Deploy to GitHub Pages
         uses: JamesIves/github-pages-deploy-action@v4
         with:
-          folder: "${{ steps.find_package.outputs.PKG_DIR }}/dist"
+          folder: "RH_frontend/dist"
           branch: gh-pages
