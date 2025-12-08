@@ -1,8 +1,7 @@
 [build]
-  publish = "RH_frontend/build"  # Si usas React/Vue/etc
-  # O si es un backend Python:
-  # command = "python backend/app.py"
+  publish = "RH_frontend/web-build"  # Expo genera en web-build, no en build
+  command = "cd RH_frontend && npm install && npm run build"
 
 [build.environment]
-  PYTHON_VERSION = "3.11"
-  NODE_VERSION = "18"  # Si también usas Node.js
+  NODE_VERSION = "18"  # Usa Node 18 (compatible con Expo)
+  # NO configures Python aquí ya que no es necesario
