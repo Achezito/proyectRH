@@ -2,7 +2,7 @@
 
 on:
   push:
-    branches: [nuevo] # ← CAMBIADO A "nuevo"
+    branches: [nuevo]
 
 jobs:
   build-and-deploy:
