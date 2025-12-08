@@ -1,0 +1,65 @@
+﻿name: "DEPLOY RH FRONTEND"  # NOMBRE DIFERENTE
+
+on:
+  push:
+    branches: [nuevo]
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v3
+    
+    - name: Debug - Show structure
+      run: |
+        echo "=== MOSTRANDO TODO ==="
+        pwd
+        ls -la
+        echo "=== BUSCANDO package.json ==="
+        find . -name "package.json" -type f 2>/dev/null || echo "No encontrado"
+        echo "=== LISTA RECURSIVA ==="
+        find . -type f -name "*.json" | head -10
+    
+    - name: Setup Node.js
+      uses: actions/setup-node@v3
+      with:
+        node-version: "18"
+    
+    - name: Find and install
+      id: setup
+      run: |
+        # Busca package.json
+        if [ -f "package.json" ]; then
+          echo "✅ package.json en raíz"
+          echo "DIR=." >> $GITHUB_OUTPUT
+        elif [ -f "RH_frontend/package.json" ]; then
+          echo "✅ package.json en RH_frontend/"
+          echo "DIR=RH_frontend" >> $GITHUB_OUTPUT
+        else
+          echo "❌ ERROR: No package.json encontrado"
+          echo "Listando todo:"
+          find . -type f | head -30
+          exit 1
+        fi
+    
+    - name: Install dependencies
+      run: |
+        if [ "${{ steps.setup.outputs.DIR }}" != "." ]; then
+          cd "${{ steps.setup.outputs.DIR }}"
+        fi
+        npm install --legacy-peer-deps
+    
+    - name: Build
+      run: |
+        if [ "${{ steps.setup.outputs.DIR }}" != "." ]; then
+          cd "${{ steps.setup.outputs.DIR }}"
+        fi
+        npm run build
+    
+    - name: Deploy to GitHub Pages
+      uses: JamesIves/github-pages-deploy-action@v4
+      with:
+        folder: "${{ steps.setup.outputs.DIR }}/dist"
+        branch: gh-pages
