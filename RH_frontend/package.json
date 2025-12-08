@@ -1,6 +1,7 @@
 {
   "name": "rh_frontend",
   "version": "1.0.0",
+  "homepage": "https://Achezito.github.io/proyectRH/",
   "main": "index.js",
   "scripts": {
     "start": "expo start",
