@@ -4,76 +4,84 @@ import {
   Text,
   FlatList,
   TouchableOpacity,
-  Alert,
   ActivityIndicator,
+  RefreshControl,
+  StyleSheet,
 } from "react-native";
-import { Ionicons, FontAwesome } from "@expo/vector-icons";
-import { styles } from "./styles";
-import { formatDate } from "../../shared/utils/dateFormatter";
+import { format } from "date-fns";
+import { es } from "date-fns/locale";
 
-const DiaEconomicoItem = ({ item, onPress, onDelete, isDeleting }) => {
+// Define los colores aquí mismo por seguridad
+const LOCAL_COLORS = {
+  primary: "#007AFF",
+  success: "#34C759",
+  warning: "#FF9500",
+  danger: "#FF3B30",
+  gray: "#8E8E93",
+  text: "#000000",
+  textSecondary: "#6C6C70",
+  background: "#FFFFFF",
+};
+
+const DiasEconomicosList = ({
+  diasEconomicos,
+  estadisticas,
+  loading,
+  refreshing,
+  onItemPress,
+  onRefresh,
+  onOpenModal,
+}) => {
   const getEstadoColor = (estado) => {
-    switch (estado) {
+    if (!estado) return LOCAL_COLORS.gray;
+
+    const estadoLower = estado.toLowerCase();
+    switch (estadoLower) {
       case "aprobado":
-        return "#10b981";
+        return LOCAL_COLORS.success;
       case "pendiente":
-        return "#f59e0b";
+        return LOCAL_COLORS.warning;
       case "rechazado":
-        return "#ef4444";
+        return LOCAL_COLORS.danger;
+      case "cancelado":
+        return LOCAL_COLORS.gray;
       default:
-        return "#6b7280";
+        return LOCAL_COLORS.gray;
     }
   };
 
   const getEstadoText = (estado) => {
-    switch (estado) {
-      case "aprobado":
-        return "Aprobado";
-      case "pendiente":
-        return "Pendiente";
-      case "rechazado":
-        return "Rechazado";
-      default:
-        return estado;
-    }
+    if (!estado) return "PENDIENTE";
+    return estado.toUpperCase();
   };
 
-  const handleDeletePress = () => {
-    if (item.estado !== "pendiente") {
-      Alert.alert(
-        "No se puede eliminar",
-        "Solo se pueden eliminar solicitudes pendientes",
-        [{ text: "Entendido" }]
-      );
-      return;
+  const renderItem = ({ item }) => {
+    let fechaFormateada = "Fecha no disponible";
+    let fechaSolicitud = "Fecha no disponible";
+
+    try {
+      if (item.fecha) {
+        fechaFormateada = format(new Date(item.fecha), "dd 'de' MMMM, yyyy", {
+          locale: es,
+        });
+      }
+      if (item.creado_en) {
+        fechaSolicitud = format(new Date(item.creado_en), "dd/MM/yyyy HH:mm", {
+          locale: es,
+        });
+      }
+    } catch (error) {
+      console.error("Error formateando fecha:", error);
     }
 
-    Alert.alert(
-      "Eliminar Solicitud",
-      "¿Estás seguro de que quieres eliminar esta solicitud de día económico?",
-      [
-        { text: "Cancelar", style: "cancel" },
-        {
-          text: "Eliminar",
-          style: "destructive",
-          onPress: () => onDelete(item.id, item.estado),
-        },
-      ]
-    );
-  };
-
-  return (
-    <TouchableOpacity
-      style={styles.listItem}
-      onPress={() => onPress(item)}
-      disabled={isDeleting}
-    >
-      <View style={styles.listItemContent}>
-        <View style={styles.listItemHeader}>
-          <View style={styles.listItemInfo}>
-            <Text style={styles.listItemTitle}>{item.motivo}</Text>
-            <Text style={styles.listItemSubtitle}>Día económico</Text>
-          </View>
+    return (
+      <TouchableOpacity
+        style={styles.card}
+        onPress={() => onItemPress && onItemPress(item)}
+        activeOpacity={0.7}
+      >
+        <View style={styles.cardHeader}>
+          <Text style={styles.fecha}>{fechaFormateada}</Text>
           <View
             style={[
               styles.estadoBadge,
@@ -84,67 +92,175 @@ const DiaEconomicoItem = ({ item, onPress, onDelete, isDeleting }) => {
           </View>
         </View>
 
-        <View style={styles.listItemFooter}>
-          <Text style={styles.listItemDetail}>
-            <Ionicons name="calendar-outline" size={14} color="#64748b" />{" "}
-            {formatDate(item.fecha)}
-          </Text>
+        <Text style={styles.motivo} numberOfLines={2}>
+          {item.motivo || "Sin motivo especificado"}
+        </Text>
 
-          {item.estado === "pendiente" && (
-            <TouchableOpacity
-              onPress={handleDeletePress}
-              disabled={isDeleting}
-              style={styles.deleteButton}
-            >
-              {isDeleting ? (
-                <ActivityIndicator size="small" color="#ef4444" />
-              ) : (
-                <Ionicons name="trash-outline" size={18} color="#ef4444" />
-              )}
-            </TouchableOpacity>
-          )}
-        </View>
-      </View>
-    </TouchableOpacity>
+        <Text style={styles.fechaSolicitud}>Solicitado: {fechaSolicitud}</Text>
+      </TouchableOpacity>
+    );
+  };
+
+  const renderEmptyState = () => (
+    <View style={styles.emptyContainer}>
+      <Text style={styles.emptyTitle}>No hay solicitudes</Text>
+      <Text style={styles.emptyText}>
+        Aún no has solicitado días económicos.
+        {estadisticas?.disponibles > 0 && (
+          <>
+            {"\n"}Tienes {estadisticas.disponibles} días disponibles.
+          </>
+        )}
+      </Text>
+      {estadisticas?.disponibles > 0 && onOpenModal && (
+        <TouchableOpacity style={styles.emptyButton} onPress={onOpenModal}>
+          <Text style={styles.emptyButtonText}>Solicitar día económico</Text>
+        </TouchableOpacity>
+      )}
+    </View>
   );
-};
 
-const DiasEconomicosList = ({
-  diasEconomicos,
-  onItemPress,
-  onItemDelete,
-  isDeleting = false,
-}) => {
-  if (diasEconomicos.length === 0) {
+  if (loading && !refreshing) {
     return (
-      <View style={styles.emptyState}>
-        <FontAwesome name="calendar-o" size={48} color="#cbd5e1" />
-        <Text style={styles.emptyStateText}>
-          No hay días económicos solicitados
-        </Text>
-        <Text style={styles.emptyStateSubtext}>
-          Puedes solicitar días económicos usando el botón correspondiente
-        </Text>
+      <View style={styles.loadingContainer}>
+        <ActivityIndicator size="large" color={LOCAL_COLORS.primary} />
+        <Text style={styles.loadingText}>Cargando días económicos...</Text>
       </View>
     );
   }
 
   return (
-    <FlatList
-      data={diasEconomicos}
-      scrollEnabled={false}
-      renderItem={({ item }) => (
-        <DiaEconomicoItem
-          item={item}
-          onPress={onItemPress}
-          onDelete={onItemDelete}
-          isDeleting={isDeleting}
-        />
-      )}
-      keyExtractor={(item) => item.id.toString()}
-      contentContainerStyle={styles.listContainer}
-    />
+    <View style={styles.container}>
+      <FlatList
+        data={diasEconomicos || []}
+        renderItem={renderItem}
+        keyExtractor={(item) =>
+          item.id?.toString() ||
+          `item-${Math.random().toString(36).substr(2, 9)}`
+        }
+        ListEmptyComponent={renderEmptyState}
+        refreshControl={
+          onRefresh ? (
+            <RefreshControl
+              refreshing={refreshing || false}
+              onRefresh={onRefresh}
+              colors={[LOCAL_COLORS.primary]}
+              tintColor={LOCAL_COLORS.primary}
+            />
+          ) : undefined
+        }
+        showsVerticalScrollIndicator={false}
+        contentContainerStyle={
+          !diasEconomicos || diasEconomicos.length === 0
+            ? styles.flatListEmpty
+            : styles.flatListContent
+        }
+      />
+    </View>
   );
 };
+
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+    minHeight: 200,
+  },
+  flatListContent: {
+    paddingVertical: 8,
+  },
+  flatListEmpty: {
+    flexGrow: 1,
+    justifyContent: "center",
+  },
+  card: {
+    backgroundColor: LOCAL_COLORS.background,
+    borderRadius: 10,
+    padding: 15,
+    marginHorizontal: 16,
+    marginBottom: 10,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+  cardHeader: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: 8,
+  },
+  fecha: {
+    fontSize: 16,
+    fontWeight: "600",
+    color: LOCAL_COLORS.text,
+    flex: 1,
+  },
+  estadoBadge: {
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 12,
+    marginLeft: 10,
+    minWidth: 80,
+    alignItems: "center",
+  },
+  estadoText: {
+    color: "#fff",
+    fontSize: 11,
+    fontWeight: "bold",
+  },
+  motivo: {
+    fontSize: 14,
+    color: LOCAL_COLORS.textSecondary,
+    marginBottom: 8,
+    lineHeight: 18,
+  },
+  fechaSolicitud: {
+    fontSize: 12,
+    color: LOCAL_COLORS.gray,
+    fontStyle: "italic",
+  },
+  loadingContainer: {
+    padding: 40,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  loadingText: {
+    marginTop: 10,
+    color: LOCAL_COLORS.textSecondary,
+    fontSize: 14,
+  },
+  emptyContainer: {
+    padding: 40,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  emptyTitle: {
+    fontSize: 18,
+    fontWeight: "bold",
+    color: LOCAL_COLORS.text,
+    marginBottom: 10,
+  },
+  emptyText: {
+    fontSize: 14,
+    color: LOCAL_COLORS.textSecondary,
+    textAlign: "center",
+    lineHeight: 20,
+    marginBottom: 20,
+  },
+  emptyButton: {
+    backgroundColor: LOCAL_COLORS.primary,
+    paddingHorizontal: 20,
+    paddingVertical: 12,
+    borderRadius: 8,
+    minWidth: 200,
+    alignItems: "center",
+  },
+  emptyButtonText: {
+    color: "#fff",
+    fontWeight: "600",
+    fontSize: 14,
+  },
+});
 
 export default DiasEconomicosList;

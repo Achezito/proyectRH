@@ -1,3 +1,4 @@
+// EN LAS IMPORTACIONES, AGREGA:
 import React, { useState, useRef } from "react";
 import {
   View,
@@ -12,6 +13,9 @@ import {
 import { Ionicons } from "@expo/vector-icons";
 
 import Header from "../../components/header";
+
+// AGREGAR ESTA IMPORTACIÓN:
+import { API_BASE_URL } from "../../config/api";
 
 export default function UsuariosScreen() {
   const [previewData, setPreviewData] = useState([]);
@@ -28,7 +32,7 @@ export default function UsuariosScreen() {
     setCsvFile(file);
   };
 
-  // 📤 Subir CSV y generar contraseñas
+  // 📤 Subir CSV y generar contraseñas - MODIFICADO
   const handlePreview = async () => {
     if (!csvFile) return alert("Por favor selecciona un archivo CSV primero.");
     setLoading(true);
@@ -37,13 +41,14 @@ export default function UsuariosScreen() {
     formData.append("file", csvFile);
 
     try {
-      const res = await fetch(
-        "http://10.194.1.108:5000/admin/preview-docentes",
-        {
-          method: "POST",
-          body: formData,
-        }
-      );
+      // ANTES:
+      // const res = await fetch("http://172.18.4.188:5000/admin/preview-docentes", {...});
+
+      // DESPUÉS:
+      const res = await fetch(`${API_BASE_URL}/admin/preview-docentes`, {
+        method: "POST",
+        body: formData,
+      });
 
       const data = await res.json();
       if (data.error) throw new Error(data.error);
@@ -59,19 +64,20 @@ export default function UsuariosScreen() {
     }
   };
 
-  // ✅ Confirmar importación
+  // ✅ Confirmar importación - MODIFICADO
   const handleConfirm = async () => {
     if (previewData.length === 0) return alert("No hay datos para confirmar.");
 
     try {
-      const res = await fetch(
-        "http://10.194.1.108:5000/admin/confirmar-docentes",
-        {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ docentes: previewData }),
-        }
-      );
+      // ANTES:
+      // const res = await fetch("http://172.18.4.188:5000/admin/confirmar-docentes", {...});
+
+      // DESPUÉS:
+      const res = await fetch(`${API_BASE_URL}/admin/confirmar-docentes`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ docentes: previewData }),
+      });
 
       const result = await res.json();
       if (result.error) throw new Error(result.error);
@@ -93,7 +99,7 @@ export default function UsuariosScreen() {
     }
   };
 
-  // 📥 Descargar CSV con contraseñas
+  // 📥 Descargar CSV con contraseñas - MODIFICADO
   const handleDownload = async () => {
     try {
       if (previewData.length === 0) {
@@ -101,8 +107,12 @@ export default function UsuariosScreen() {
         return;
       }
 
+      // ANTES:
+      // const response = await fetch("http://172.18.4.188:5000/admin/generar-csv-docentes", {...});
+
+      // DESPUÉS:
       const response = await fetch(
-        "http://10.194.1.108:5000/admin/generar-csv-docentes",
+        `${API_BASE_URL}/admin/generar-csv-docentes`,
         {
           method: "POST",
           headers: { "Content-Type": "application/json" },

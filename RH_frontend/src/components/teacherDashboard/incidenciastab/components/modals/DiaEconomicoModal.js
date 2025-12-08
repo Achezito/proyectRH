@@ -1,493 +1,618 @@
-// src/components/teacherDashboard/IncidenciasTab/components/modals/DiaEconomicoModal.js
+// teacherDashboard/incidenciastab/components/modals/DiaEconomicoModal.js
 import React, { useState, useEffect } from "react";
 import {
+  Modal,
   View,
   Text,
-  TouchableOpacity,
-  Modal,
   TextInput,
-  ScrollView,
-  ActivityIndicator,
+  TouchableOpacity,
+  Platform,
   Alert,
+  StyleSheet,
+  ActivityIndicator,
 } from "react-native";
-import { Ionicons } from "@expo/vector-icons";
-import DateTimePicker from "@react-native-community/datetimepicker";
-import DiaEconomicoService from "./DiaEconomicoServices";
-import ErrorModal from "./ErrorModal";
-import { styles } from "./styles";
+import { format } from "date-fns";
+import { es } from "date-fns/locale";
+import { colors } from "../../shared/constants/styles";
 
-const API_BASE = "http://10.194.1.108:5000";
+// Si no es web, importa el DateTimePicker normal
+let DateTimePicker;
+if (Platform.OS !== "web") {
+  DateTimePicker = require("@react-native-community/datetimepicker").default;
+}
 
-const DiaEconomicoModal = ({ visible, onClose, docenteId, onSuccess }) => {
-  const [formData, setFormData] = useState({
-    fecha: new Date().toISOString().split("T")[0],
-    motivo: "",
-  });
-
+const DiaEconomicoModal = ({
+  visible,
+  onClose,
+  docenteId,
+  onSuccess,
+  estadisticas,
+  onSolicitar,
+  // NUEVO: Pasar las solicitudes pendientes desde el hook
+  solicitudesPendientes = [],
+}) => {
+  const [fecha, setFecha] = useState(new Date());
+  const [motivo, setMotivo] = useState("");
   const [showDatePicker, setShowDatePicker] = useState(false);
-  const [isSubmitting, setIsSubmitting] = useState(false);
-  const [isLoadingInfo, setIsLoadingInfo] = useState(false);
-  const [infoDiasEconomicos, setInfoDiasEconomicos] = useState(null);
-  const [showErrorModal, setShowErrorModal] = useState(false);
-  const [errorMessage, setErrorMessage] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [errors, setErrors] = useState({});
+  const [submitError, setSubmitError] = useState("");
+  const [validando, setValidando] = useState(false);
 
-  // ===== FUNCIONES AUXILIARES =====
-  const obtenerInfoDiasEconomicos = async () => {
-    try {
-      console.log("🔍 Obteniendo información de días económicos...");
-
-      // Simulamos datos de prueba basados en lo que recibiste
-      return {
-        success: true,
-        data: {
-          dias_disponibles: 5,
-          dias_limite: 5,
-          dias_usados: 0,
-          mensaje: "Tienes 5 de 5 día(s) económico(s) disponible(s)",
-          tipo_contrato: "cuatrimestral",
-          tipo_docente: "colaborador",
-        },
-      };
-
-      /*
-      // Código real (comentado por ahora)
-      const token = await getAuthToken();
-      if (!token) {
-        throw new Error("No hay token de autenticación");
-      }
-
-      const response = await fetch(
-        `${API_BASE}/dias_economicos/info-dias-economicos`,
-        {
-          method: "GET",
-          headers: {
-            Authorization: `Bearer ${token}`,
-            "Content-Type": "application/json",
-          },
-        }
-      );
-
-      if (!response.ok) {
-        throw new Error(`Error ${response.status}`);
-      }
-
-      return await response.json();
-      */
-    } catch (error) {
-      console.error("❌ Error obteniendo info días económicos:", error);
-      throw error;
-    }
-  };
-
-  const solicitarDiaEconomico = async (formData) => {
-    try {
-      console.log("📝 Solicitando día económico:", formData);
-
-      // Simulamos éxito
-      return {
-        success: true,
-        message: "Solicitud enviada correctamente",
-      };
-
-      /*
-      // Código real (comentado por ahora)
-      const token = await getAuthToken();
-      if (!token) {
-        throw new Error("No hay token de autenticación");
-      }
-
-      const requestBody = {
-        fecha: formData.fecha,
-        motivo: formData.motivo.trim(),
-      };
-
-      const response = await fetch(
-        `${API_BASE}/dias_economicos/dias-economicos`,
-        {
-          method: "POST",
-          headers: {
-            Authorization: `Bearer ${token}`,
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify(requestBody),
-        }
-      );
-
-      if (!response.ok) {
-        throw new Error(`Error ${response.status}`);
-      }
-
-      return await response.json();
-      */
-    } catch (error) {
-      console.error("❌ Error solicitando día económico:", error);
-      throw error;
-    }
-  };
-
-  // ===== EFECTOS =====
   useEffect(() => {
     if (visible) {
-      console.log("🚀 Modal abierto");
-      loadInfoDiasEconomicos();
-      resetForm();
+      // Resetear fecha al día actual
+      const today = new Date();
+      setFecha(today);
+      setMotivo("");
+      setErrors({});
+      setSubmitError("");
     }
   }, [visible]);
 
-  // ===== FUNCIONES PRINCIPALES =====
-  const loadInfoDiasEconomicos = async () => {
-    try {
-      console.log("🔄 Cargando información de días económicos...");
-      setIsLoadingInfo(true);
+  const onChangeDate = (event, selectedDate) => {
+    if (Platform.OS === "ios") {
+      setShowDatePicker(true); // iOS mantiene el picker abierto
+    } else if (Platform.OS === "android") {
+      setShowDatePicker(false);
+    }
 
-      const info = await obtenerInfoDiasEconomicos();
-      console.log("💰 Info días económicos recibida:", info);
+    if (selectedDate) {
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
 
-      if (info.success) {
-        setInfoDiasEconomicos(info.data);
-        console.log("✅ Información establecida:", info.data);
-      } else {
-        throw new Error(info.error || "Error al cargar información");
+      selectedDate.setHours(0, 0, 0, 0);
+
+      // Validar que no sea fecha pasada
+      if (selectedDate < today) {
+        Alert.alert(
+          "Fecha inválida",
+          "No se pueden solicitar días en fechas pasadas"
+        );
+        return;
       }
-    } catch (error) {
-      console.error("❌ Error cargando info días económicos:", error);
-      showError(`Error al cargar la información: ${error.message}`);
-    } finally {
-      setIsLoadingInfo(false);
+
+      setFecha(selectedDate);
     }
   };
 
-  const handleDateChange = (event, selectedDate) => {
-    setShowDatePicker(false);
-    if (selectedDate) {
-      setFormData({
-        ...formData,
-        fecha: selectedDate.toISOString().split("T")[0],
+  const formatFechaForDisplay = (date) => {
+    try {
+      return format(date, "EEEE dd 'de' MMMM 'de' yyyy", { locale: es });
+    } catch (error) {
+      return date.toLocaleDateString("es-ES", {
+        weekday: "long",
+        year: "numeric",
+        month: "long",
+        day: "numeric",
       });
     }
   };
 
-  // ===== VALIDACIONES SEPARADAS =====
-  // Solo deshabilita inputs por carga/envió
-  const areInputsDisabled = () => {
-    const disabled = isSubmitting || isLoadingInfo;
-    console.log("🔧 Inputs disabled?", disabled);
-    return disabled;
+  const formatFechaForAPI = (date) => {
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, "0");
+    const day = String(date.getDate()).padStart(2, "0");
+    return `${year}-${month}-${day}`;
   };
 
-  // Solo deshabilita el botón de enviar
-  const isSubmitButtonDisabled = () => {
-    const disabled =
-      isSubmitting ||
-      isLoadingInfo ||
-      !infoDiasEconomicos ||
-      infoDiasEconomicos.dias_disponibles <= 0 ||
-      !formData.motivo.trim() ||
-      !formData.fecha;
+  // Función para validar si ya tiene solicitudes pendientes
+  const validarSolicitudesPendientes = () => {
+    if (solicitudesPendientes && solicitudesPendientes.length > 0) {
+      const fechasPendientes = solicitudesPendientes
+        .map((s) => s.fecha)
+        .filter(Boolean)
+        .join(", ");
 
-    console.log("🔧 Botón disabled?", {
-      disabled,
-      isSubmitting,
-      isLoadingInfo,
-      hasInfo: !!infoDiasEconomicos,
-      diasDisponibles: infoDiasEconomicos?.dias_disponibles,
-      hasMotivo: !!formData.motivo.trim(),
-      hasFecha: !!formData.fecha,
-    });
-
-    return disabled;
-  };
-
-  const validarFormulario = () => {
-    if (!formData.motivo.trim()) {
-      return "Por favor ingresa el motivo de la solicitud";
+      return {
+        tienePendientes: true,
+        mensaje: `Ya tienes ${solicitudesPendientes.length} solicitud(es) pendiente(s). Debes esperar a que sean procesadas antes de solicitar otro día.`,
+        fechas: fechasPendientes,
+      };
     }
-
-    if (!formData.fecha) {
-      return "Por favor selecciona una fecha";
-    }
-
-    const fechaSeleccionada = new Date(formData.fecha);
-    const hoy = new Date();
-    hoy.setHours(0, 0, 0, 0);
-
-    if (fechaSeleccionada < hoy) {
-      return "No puedes solicitar días económicos para fechas pasadas";
-    }
-
-    const diaSemana = fechaSeleccionada.getDay();
-    if (diaSemana === 0 || diaSemana === 6) {
-      return "No puedes solicitar días económicos para fines de semana";
-    }
-
-    if (infoDiasEconomicos && infoDiasEconomicos.dias_disponibles <= 0) {
-      return `No tienes días económicos disponibles\n\nLímite: ${infoDiasEconomicos.dias_limite}\nUsados: ${infoDiasEconomicos.dias_usados}`;
-    }
-
-    return null;
+    return { tienePendientes: false };
   };
 
   const handleSubmit = async () => {
-    console.log("🎯 Iniciando envío...");
+    // Limpiar errores anteriores
+    setErrors({});
+    setSubmitError("");
+    setValidando(true);
 
-    if (isSubmitButtonDisabled()) {
-      console.log("❌ Botón deshabilitado, no se puede enviar");
+    // Validar solicitudes pendientes
+    const validacionPendientes = validarSolicitudesPendientes();
+    if (validacionPendientes.tienePendientes) {
+      Alert.alert(
+        "Solicitud Pendiente",
+        validacionPendientes.mensaje +
+          (validacionPendientes.fechas
+            ? `\n\nFechas pendientes: ${validacionPendientes.fechas}`
+            : ""),
+        [{ text: "Entendido" }]
+      );
+      setValidando(false);
       return;
     }
 
-    const errorValidacion = validarFormulario();
-    if (errorValidacion) {
-      showError(errorValidacion);
+    // Validaciones
+    const newErrors = {};
+
+    if (!motivo.trim()) {
+      newErrors.motivo = "❌ Por favor ingresa un motivo";
+    } else if (motivo.trim().length < 5) {
+      newErrors.motivo = "❌ El motivo debe tener al menos 5 caracteres";
+    }
+
+    const hoy = new Date();
+    hoy.setHours(0, 0, 0, 0);
+    const fechaSeleccionada = new Date(fecha);
+    fechaSeleccionada.setHours(0, 0, 0, 0);
+
+    if (fechaSeleccionada < hoy) {
+      newErrors.fecha = "❌ No se pueden solicitar días en fechas pasadas";
+    }
+
+    if (estadisticas?.disponibles <= 0) {
+      newErrors.disponibles = "❌ No tienes días económicos disponibles";
+    }
+
+    setErrors(newErrors);
+    setValidando(false);
+
+    // Si hay errores, no enviar
+    if (Object.keys(newErrors).length > 0) {
       return;
     }
 
+    const fechaFormateada = formatFechaForAPI(fecha);
+    const data = {
+      docente_id: docenteId,
+      fecha: fechaFormateada,
+      motivo: motivo.trim(),
+    };
+
+    setLoading(true);
     try {
-      setIsSubmitting(true);
-      console.log("📤 Enviando solicitud...");
-
-      const resultado = await solicitarDiaEconomico({
-        fecha: formData.fecha,
-        motivo: formData.motivo.trim(),
-      });
-
-      if (resultado.success) {
-        console.log("✅ Solicitud exitosa");
-        Alert.alert(
-          "✅ Éxito",
-          resultado.message || "Solicitud enviada correctamente",
-          [
-            {
-              text: "OK",
-              onPress: () => {
-                handleClose();
-                if (onSuccess) onSuccess();
-              },
-            },
-          ]
+      await onSolicitar(data);
+      onSuccess();
+    } catch (error) {
+      // Manejar error específico de solicitudes pendientes
+      if (
+        error.message?.includes("pendiente") ||
+        error.message?.includes("pendientes") ||
+        error.response?.error?.includes("pendiente")
+      ) {
+        setSubmitError(
+          "⚠️ " +
+            (error.message ||
+              error.response?.error ||
+              "Ya tienes solicitudes pendientes")
         );
       } else {
-        showError(resultado.error || "Error al enviar la solicitud");
+        setSubmitError(error.message || "❌ Error al enviar la solicitud");
       }
-    } catch (error) {
-      console.error("❌ Error en handleSubmit:", error);
-      showError(`Error al enviar solicitud: ${error.message}`);
     } finally {
-      setIsSubmitting(false);
+      setLoading(false);
     }
   };
 
-  const showError = (message) => {
-    console.log("🚨 Mostrando error:", message);
-    setErrorMessage(message);
-    setShowErrorModal(true);
+  // Renderizar el selector de fecha según la plataforma
+  const renderDateSelector = () => {
+    if (Platform.OS === "web") {
+      return (
+        <View style={styles.webDateContainer}>
+          <Text style={styles.inputLabel}>Fecha *</Text>
+          <View style={styles.webDateWrapper}>
+            <input
+              type="date"
+              value={formatFechaForAPI(fecha)}
+              onChange={(e) => {
+                const selectedDate = new Date(e.target.value);
+                selectedDate.setHours(12, 0, 0, 0); // Evitar problemas de zona horaria
+                onChangeDate(null, selectedDate);
+              }}
+              min={formatFechaForAPI(new Date())}
+              style={styles.webDateInput}
+            />
+          </View>
+          <Text style={styles.selectedDateDisplay}>
+            📅 Seleccionado: {formatFechaForDisplay(fecha)}
+          </Text>
+        </View>
+      );
+    }
+
+    // Para iOS y Android
+    return (
+      <View>
+        <TouchableOpacity
+          style={[styles.dateButton, errors.fecha && styles.inputError]}
+          onPress={() => setShowDatePicker(true)}
+        >
+          <Text style={styles.dateButtonText}>
+            📅 {formatFechaForDisplay(fecha)}
+          </Text>
+          <Text style={styles.dateButtonHint}>
+            Toca para seleccionar otra fecha
+          </Text>
+        </TouchableOpacity>
+
+        {showDatePicker && DateTimePicker && (
+          <DateTimePicker
+            value={fecha}
+            mode="date"
+            display={Platform.OS === "ios" ? "spinner" : "default"}
+            onChange={onChangeDate}
+            minimumDate={new Date()}
+            locale="es-ES"
+          />
+        )}
+      </View>
+    );
   };
 
-  const closeErrorModal = () => {
-    setShowErrorModal(false);
-    setErrorMessage("");
-  };
+  // Mostrar advertencia si tiene solicitudes pendientes
+  const renderAdvertenciaPendientes = () => {
+    const validacion = validarSolicitudesPendientes();
 
-  const resetForm = () => {
-    console.log("🔄 Reseteando formulario");
-    setFormData({
-      fecha: new Date().toISOString().split("T")[0],
-      motivo: "",
-    });
-  };
-
-  const handleClose = () => {
-    if (isSubmitting) return;
-    console.log("🔒 Cerrando modal");
-    resetForm();
-    onClose();
-  };
-
-  const getButtonText = () => {
-    if (isSubmitting) return "Enviando...";
-    if (isLoadingInfo) return "Cargando información...";
-    if (!infoDiasEconomicos) return "Cargando...";
-    if (infoDiasEconomicos.dias_disponibles <= 0) return "Sin días disponibles";
-    return "Solicitar Día Económico";
-  };
-
-  // ===== RENDER =====
-  return (
-    <>
-      <Modal visible={visible} animationType="slide" transparent>
-        <View style={styles.modalOverlay}>
-          <View style={styles.modalContent}>
-            {/* Header */}
-            <View style={styles.modalHeader}>
-              <Text style={styles.modalTitle}>Solicitar Día Económico</Text>
-              <TouchableOpacity onPress={handleClose} disabled={isSubmitting}>
-                <Ionicons name="close" size={24} color="#64748b" />
-              </TouchableOpacity>
+    if (validacion.tienePendientes) {
+      return (
+        <View style={styles.warningContainer}>
+          <Text style={styles.warningTitle}>⚠️ Solicitudes Pendientes</Text>
+          <Text style={styles.warningText}>
+            Tienes {solicitudesPendientes.length} solicitud(es) pendiente(s) de
+            revisión.
+            {"\n"}Debes esperar a que sean aprobadas o canceladas antes de
+            solicitar otro día.
+          </Text>
+          {solicitudesPendientes.map((solicitud, index) => (
+            <View key={index} style={styles.pendienteItem}>
+              <Text style={styles.pendienteText}>
+                📅 {solicitud.fecha} - {solicitud.motivo || "Sin motivo"}
+              </Text>
             </View>
+          ))}
+        </View>
+      );
+    }
+    return null;
+  };
 
-            <ScrollView style={styles.modalScrollContent}>
-              {/* Información de días */}
-              <View style={styles.infoCard}>
-                <Ionicons name="calendar-outline" size={20} color="#10b981" />
-                <View style={styles.infoContent}>
-                  <Text style={styles.infoTitle}>
-                    Días Económicos Disponibles
-                  </Text>
+  return (
+    <Modal
+      animationType="slide"
+      transparent={true}
+      visible={visible}
+      onRequestClose={onClose}
+    >
+      <View style={styles.modalOverlay}>
+        <View style={styles.modalContainer}>
+          <View style={styles.modalHeader}>
+            <Text style={styles.modalTitle}>Solicitar Día Económico</Text>
+            <TouchableOpacity onPress={onClose} style={styles.closeButton}>
+              <Text style={styles.closeButtonText}>✕</Text>
+            </TouchableOpacity>
+          </View>
 
-                  {isLoadingInfo ? (
-                    <View style={styles.loadingContainer}>
-                      <ActivityIndicator size="small" color="#10b981" />
-                      <Text style={styles.infoText}>
-                        Cargando información...
-                      </Text>
-                    </View>
-                  ) : infoDiasEconomicos ? (
-                    <>
-                      <View style={styles.statsContainer}>
-                        <View style={styles.statItem}>
-                          <Text style={styles.statLabel}>Disponibles</Text>
-                          <Text
-                            style={[
-                              styles.statValue,
-                              infoDiasEconomicos.dias_disponibles <= 0 &&
-                                styles.statValueError,
-                            ]}
-                          >
-                            {infoDiasEconomicos.dias_disponibles}
-                          </Text>
-                        </View>
-                        <View style={styles.statItem}>
-                          <Text style={styles.statLabel}>Usados</Text>
-                          <Text style={styles.statValue}>
-                            {infoDiasEconomicos.dias_usados}
-                          </Text>
-                        </View>
-                        <View style={styles.statItem}>
-                          <Text style={styles.statLabel}>Límite</Text>
-                          <Text style={styles.statValue}>
-                            {infoDiasEconomicos.dias_limite}
-                          </Text>
-                        </View>
-                      </View>
+          <View style={styles.infoBox}>
+            <Text style={styles.infoText}>
+              📊 <Text style={styles.bold}>Disponibles:</Text>{" "}
+              {estadisticas?.disponibles || 0} de {estadisticas?.total || 0}{" "}
+              días
+            </Text>
+            {estadisticas?.es_mensual && (
+              <Text style={styles.infoText}>
+                ⓘ Renovación mensual - Se reinician cada mes
+              </Text>
+            )}
+          </View>
 
-                      <Text style={styles.infoDetail}>
-                        Tipo: {infoDiasEconomicos.tipo_docente} • Contrato:{" "}
-                        {infoDiasEconomicos.tipo_contrato}
-                      </Text>
-                    </>
-                  ) : (
-                    <Text style={styles.infoText}>
-                      No se pudo cargar la información
-                    </Text>
-                  )}
-                </View>
-              </View>
+          {/* Mostrar advertencia de solicitudes pendientes */}
+          {renderAdvertenciaPendientes()}
 
-              {/* Selección de fecha */}
-              <Text style={styles.modalSubtitle}>Fecha a Solicitar</Text>
-              <TouchableOpacity
+          {submitError ? (
+            <View
+              style={[
+                styles.errorContainer,
+                submitError.includes("⚠️") && styles.warningContainer,
+              ]}
+            >
+              <Text
                 style={[
-                  styles.dateInput,
-                  areInputsDisabled() && styles.inputDisabled,
+                  styles.errorText,
+                  submitError.includes("⚠️") && styles.warningText,
                 ]}
-                onPress={() => setShowDatePicker(true)}
-                disabled={areInputsDisabled()}
               >
-                <Text
-                  style={[
-                    styles.dateText,
-                    areInputsDisabled() && styles.textDisabled,
-                  ]}
-                >
-                  {formData.fecha}
-                </Text>
-                <Ionicons
-                  name="calendar"
-                  size={20}
-                  color={areInputsDisabled() ? "#cbd5e1" : "#64748b"}
-                />
-              </TouchableOpacity>
+                {submitError}
+              </Text>
+            </View>
+          ) : null}
 
-              {showDatePicker && (
-                <DateTimePicker
-                  value={new Date(formData.fecha)}
-                  mode="date"
-                  display="default"
-                  onChange={handleDateChange}
-                  minimumDate={new Date()}
-                />
-              )}
+          <View style={styles.form}>
+            {/* Selector de fecha */}
+            {renderDateSelector()}
 
-              {/* Motivo - SIEMPRE EDITABLE (excepto por carga/envió) */}
-              <Text style={styles.modalSubtitle}>Motivo</Text>
+            {/* Error debajo del selector de fecha */}
+            {errors.fecha ? (
+              <Text style={styles.fieldErrorText}>{errors.fecha}</Text>
+            ) : null}
+
+            {errors.disponibles ? (
+              <Text style={styles.fieldErrorText}>{errors.disponibles}</Text>
+            ) : null}
+
+            {/* Campo de motivo */}
+            <View style={styles.inputContainer}>
+              <Text style={styles.inputLabel}>Motivo *</Text>
               <TextInput
-                style={[
-                  styles.input,
-                  styles.textArea,
-                  areInputsDisabled() && styles.inputDisabled,
-                ]}
-                placeholder="Describe el motivo de tu solicitud..."
-                value={formData.motivo}
+                style={[styles.textInput, errors.motivo && styles.inputError]}
+                placeholder="Describe brevemente el motivo de tu solicitud"
+                value={motivo}
                 onChangeText={(text) => {
-                  console.log("📝 Cambiando motivo a:", text);
-                  setFormData({ ...formData, motivo: text });
+                  setMotivo(text);
+                  if (errors.motivo) {
+                    setErrors((prev) => ({ ...prev, motivo: "" }));
+                  }
                 }}
                 multiline
-                numberOfLines={4}
-                placeholderTextColor="#94a3b8"
+                numberOfLines={3}
                 textAlignVertical="top"
-                editable={!areInputsDisabled()} // Solo deshabilitado por carga/envió
-                autoFocus={true}
+                maxLength={200}
               />
+              <Text style={styles.charCount}>{motivo.length}/200</Text>
 
-              {/* Botón de envío */}
+              {errors.motivo ? (
+                <Text style={styles.fieldErrorText}>{errors.motivo}</Text>
+              ) : null}
+            </View>
+
+            {/* Botones */}
+            <View style={styles.buttonContainer}>
               <TouchableOpacity
-                style={[
-                  styles.primaryButton,
-                  isSubmitButtonDisabled() && styles.primaryButtonDisabled,
-                ]}
-                onPress={handleSubmit}
-                disabled={isSubmitButtonDisabled()}
+                style={[styles.button, styles.cancelButton]}
+                onPress={onClose}
+                disabled={loading || validando}
               >
-                {isSubmitting ? (
-                  <ActivityIndicator size="small" color="white" />
-                ) : (
-                  <Text style={styles.primaryButtonText}>
-                    {getButtonText()}
-                  </Text>
-                )}
+                <Text style={styles.cancelButtonText}>Cancelar</Text>
               </TouchableOpacity>
 
-              {/* Botón de debug (solo desarrollo) */}
-              {__DEV__ && (
-                <TouchableOpacity
-                  style={styles.debugButton}
-                  onPress={() => {
-                    console.log("🔍 Estado actual:", {
-                      formData,
-                      infoDiasEconomicos,
-                      isSubmitting,
-                      isLoadingInfo,
-                      isSubmitButtonDisabled: isSubmitButtonDisabled(),
-                      areInputsDisabled: areInputsDisabled(),
-                      motivoLength: formData.motivo.length,
-                    });
-                  }}
-                >
-                  <Text style={styles.debugButtonText}>🔍 DEBUG</Text>
-                </TouchableOpacity>
-              )}
-            </ScrollView>
+              <TouchableOpacity
+                style={[
+                  styles.button,
+                  styles.submitButton,
+                  (loading || validando || estadisticas?.disponibles <= 0) &&
+                    styles.disabledButton,
+                ]}
+                onPress={handleSubmit}
+                disabled={
+                  loading || validando || estadisticas?.disponibles <= 0
+                }
+              >
+                {loading || validando ? (
+                  <ActivityIndicator color="#fff" size="small" />
+                ) : (
+                  <Text style={styles.submitButtonText}>Enviar Solicitud</Text>
+                )}
+              </TouchableOpacity>
+            </View>
           </View>
         </View>
-      </Modal>
-
-      <ErrorModal
-        visible={showErrorModal}
-        message={errorMessage}
-        onClose={closeErrorModal}
-      />
-    </>
+      </View>
+    </Modal>
   );
 };
+
+const styles = StyleSheet.create({
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: "rgba(0, 0, 0, 0.5)",
+    justifyContent: "center",
+    alignItems: "center",
+    padding: 20,
+  },
+  modalContainer: {
+    width: "100%",
+    maxWidth: 500,
+    backgroundColor: "#fff",
+    borderRadius: 15,
+    maxHeight: "90%",
+    overflow: "scroll",
+  },
+  modalHeader: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    padding: 20,
+    borderBottomWidth: 1,
+    borderBottomColor: "#eee",
+  },
+  modalTitle: {
+    fontSize: 20,
+    fontWeight: "bold",
+    color: colors.text,
+  },
+  closeButton: {
+    padding: 5,
+  },
+  closeButtonText: {
+    fontSize: 20,
+    color: colors.gray,
+  },
+  infoBox: {
+    backgroundColor: colors.infoLight,
+    padding: 15,
+    marginHorizontal: 20,
+    marginTop: 10,
+    borderRadius: 8,
+    borderLeftWidth: 4,
+    borderLeftColor: colors.info,
+  },
+  infoText: {
+    color: colors.text,
+    fontSize: 14,
+    lineHeight: 20,
+  },
+  bold: {
+    fontWeight: "bold",
+  },
+  // Advertencia de solicitudes pendientes
+  warningContainer: {
+    backgroundColor: "#FFF3CD",
+    padding: 15,
+    marginHorizontal: 20,
+    marginTop: 10,
+    borderRadius: 8,
+    borderLeftWidth: 4,
+    borderLeftColor: "#FFC107",
+  },
+  warningTitle: {
+    fontSize: 16,
+    fontWeight: "bold",
+    color: "#856404",
+    marginBottom: 5,
+  },
+  warningText: {
+    color: "#856404",
+    fontSize: 14,
+    lineHeight: 20,
+  },
+  pendienteItem: {
+    backgroundColor: "rgba(255, 193, 7, 0.1)",
+    padding: 8,
+    borderRadius: 6,
+    marginTop: 8,
+  },
+  pendienteText: {
+    color: "#856404",
+    fontSize: 12,
+  },
+  form: {
+    padding: 20,
+  },
+  // Estilos para selector de fecha en WEB
+  webDateContainer: {
+    marginBottom: 20,
+  },
+  webDateWrapper: {
+    marginBottom: 10,
+  },
+  webDateInput: {
+    width: "100%",
+    padding: "12px",
+    fontSize: "16px",
+    border: "1px solid #ccc",
+    borderRadius: "8px",
+    backgroundColor: "#fff",
+    fontFamily: "system-ui, -apple-system, sans-serif",
+    boxSizing: "border-box",
+  },
+  selectedDateDisplay: {
+    fontSize: 14,
+    color: colors.textSecondary,
+    fontStyle: "italic",
+    marginTop: 5,
+  },
+  // Estilos para selector de fecha en MÓVIL
+  dateButton: {
+    backgroundColor: colors.light,
+    padding: 15,
+    borderRadius: 8,
+    marginBottom: 10,
+    alignItems: "center",
+  },
+  dateButtonText: {
+    fontSize: 16,
+    color: colors.text,
+    fontWeight: "600",
+    marginBottom: 5,
+    textAlign: "center",
+  },
+  dateButtonHint: {
+    fontSize: 12,
+    color: colors.textSecondary,
+    fontStyle: "italic",
+    textAlign: "center",
+  },
+  // Estilos comunes
+  inputContainer: {
+    marginBottom: 20,
+  },
+  inputLabel: {
+    fontSize: 16,
+    fontWeight: "600",
+    color: colors.text,
+    marginBottom: 8,
+  },
+  textInput: {
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: 8,
+    padding: 12,
+    fontSize: 14,
+    minHeight: 80,
+    backgroundColor: "#fff",
+  },
+  charCount: {
+    textAlign: "right",
+    fontSize: 12,
+    color: colors.textSecondary,
+    marginTop: 5,
+  },
+  inputError: {
+    borderColor: colors.danger,
+    borderWidth: 1,
+  },
+  fieldErrorText: {
+    color: colors.danger,
+    fontSize: 12,
+    marginTop: 5,
+    marginLeft: 5,
+  },
+  errorContainer: {
+    backgroundColor: colors.dangerLight,
+    padding: 10,
+    marginHorizontal: 20,
+    marginTop: 10,
+    borderRadius: 8,
+    borderLeftWidth: 4,
+    borderLeftColor: colors.danger,
+  },
+  errorText: {
+    color: colors.danger,
+    fontSize: 14,
+  },
+  buttonContainer: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    marginTop: 20,
+  },
+  button: {
+    flex: 1,
+    paddingVertical: 12,
+    borderRadius: 8,
+    alignItems: "center",
+    marginHorizontal: 5,
+  },
+  cancelButton: {
+    backgroundColor: colors.light,
+    borderWidth: 1,
+    borderColor: colors.border,
+  },
+  cancelButtonText: {
+    color: colors.text,
+    fontWeight: "600",
+  },
+  submitButton: {
+    backgroundColor: colors.primary,
+  },
+  disabledButton: {
+    backgroundColor: colors.gray,
+    opacity: 0.6,
+  },
+  submitButtonText: {
+    color: "#fff",
+    fontWeight: "bold",
+  },
+});
 
 export default DiaEconomicoModal;

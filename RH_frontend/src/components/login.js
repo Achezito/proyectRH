@@ -1,4 +1,4 @@
-import React, { useState, useContext } from "react";
+import React, { useState } from "react";
 import {
   View,
   Text,
@@ -10,11 +10,12 @@ import {
   KeyboardAvoidingView,
   Platform,
 } from "react-native";
-import AsyncStorage from "@react-native-async-storage/async-storage"; // ← AÑADE ESTE IMPORT
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useNavigation } from "@react-navigation/native";
 import { Building2, AlertCircle } from "lucide-react-native";
-import { AuthContext, useAuth } from "../context/AuthContext";
+import { useAuth } from "../context/AuthContext";
 import { SafeAreaView } from "react-native-safe-area-context";
+import { API_BASE_URL } from "../config/api";
 
 export default function LoginPage() {
   const navigation = useNavigation();
@@ -29,23 +30,14 @@ export default function LoginPage() {
     setError("");
     setIsLoading(true);
 
-    console.log("Intentando login con:", email);
-
     try {
-      const res = await fetch("http://10.194.1.108:5000/auth/login", {
+      const res = await fetch(`${API_BASE_URL}/auth/login`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ email, password }),
       });
 
-      console.log("Respuesta fetch:", res.status);
       const data = await res.json();
-      console.log("Respuesta completa del login:", data);
-      console.log("Estructura de data.user:", data.user);
-      console.log(
-        "Keys de data.user:",
-        data.user ? Object.keys(data.user) : "No hay user"
-      );
 
       if (!res.ok) {
         if (res.status === 403) {
@@ -65,24 +57,20 @@ export default function LoginPage() {
             return;
           }
 
-          throw new Error(data.error || "Error desconocido");
+          throw new Error(data.error || "Error de autenticación");
         }
 
-        throw new Error(data.error || "Error desconocido");
+        throw new Error(data.error || "Error en la solicitud");
       }
-
-      console.log("Login exitoso:", data.user);
 
       if (data.user && data.user.id) {
         await AsyncStorage.setItem(
           "docenteId",
           data.user.docente_id.toString()
         );
-        await AsyncStorage.setItem("userId", data.user.id); // Guarda el UUID por separado si lo necesitas
+        await AsyncStorage.setItem("userId", data.user.id);
         await AsyncStorage.setItem("userEmail", data.user.email);
-        console.log("ID real guardado:", data.user.id);
 
-        // ✅ GUARDAR EL TOKEN DE SUPABASE
         if (data.access_token) {
           const tokenData = {
             access_token: data.access_token,
@@ -91,22 +79,24 @@ export default function LoginPage() {
             token_type: data.token_type || "bearer",
           };
           await AsyncStorage.setItem(
-            "sb-iltnubfjvyprcdujhkqi-auth-token",
+            "auth_token_data",
             JSON.stringify(tokenData)
           );
-          console.log("✅ Token de Supabase guardado");
+
+          if (data.refresh_token) {
+            await AsyncStorage.setItem("refresh_token", data.refresh_token);
+          }
         }
       } else {
-        console.error("ERROR: El backend no devolvió el ID del docente");
-        throw new Error("No se pudo obtener el ID del usuario");
+        throw new Error("No se pudo obtener la información del usuario");
       }
+
       setUser({
         ...data.user,
         rol_id: data.user.rol_id,
       });
       setUserStatus(data.user.estado);
     } catch (err) {
-      console.error("Error en login:", err);
       setError(
         err instanceof Error ? err.message : "Error al conectar con el servidor"
       );
@@ -123,7 +113,6 @@ export default function LoginPage() {
     handleLogin();
   };
 
-  // ... resto de tu código
   return (
     <KeyboardAvoidingView
       style={{ flex: 1 }}
@@ -136,18 +125,16 @@ export default function LoginPage() {
           keyboardDismissMode="on-drag"
         >
           <View style={styles.card}>
-            {/* Header */}
             <View style={styles.cardHeader}>
               <View style={styles.logoContainer}>
                 <Building2 size={40} color="#fff" />
               </View>
               <Text style={styles.title}>Iniciar Sesión</Text>
               <Text style={styles.subtitle}>
-                Sistema de Gestión de Incidencias de RH
+                Sistema de Gestión de Incidencias
               </Text>
             </View>
 
-            {/* Form */}
             <View style={styles.cardContent}>
               {error ? (
                 <View
@@ -174,7 +161,6 @@ export default function LoginPage() {
                 </View>
               ) : null}
 
-              {/* Email Input */}
               <View style={styles.inputContainer}>
                 <Text style={styles.label}>Correo Electrónico</Text>
                 <TextInput
@@ -190,7 +176,6 @@ export default function LoginPage() {
                 />
               </View>
 
-              {/* Password Input */}
               <View style={styles.inputContainer}>
                 <Text style={styles.label}>Contraseña</Text>
                 <TextInput
@@ -206,7 +191,6 @@ export default function LoginPage() {
               </View>
             </View>
 
-            {/* Footer */}
             <View style={styles.cardFooter}>
               <TouchableOpacity
                 style={[styles.button, isLoading && styles.buttonDisabled]}

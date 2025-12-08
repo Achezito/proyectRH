@@ -15,7 +15,7 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import { Ionicons, Feather, MaterialIcons } from "@expo/vector-icons";
 import { supabase } from "C:/Users/Hpp/Desktop/proyectRH/RH_frontend/supabaseClient.js"; // Asegúrate de tener configurado supabaseClient.js
 
-const API_BASE_URL = "http://10.194.1.108:5000/docente";
+const API_BASE_URL = "http://172.18.4.188:5000/docente";
 
 export default function TeacherDashboard() {
   const [sidebarOpen, setSidebarOpen] = useState(true);

@@ -27,7 +27,7 @@ import Header from "../../components/header";
 
 import { SafeAreaView } from "react-native-safe-area-context";
 
-const API_BASE_URL = "http://10.194.1.108:5000/api/admin";
+import { API_BASE_URL } from "../../config/api";
 
 export default function ConfiguracionScreen() {
   const [loading, setLoading] = useState(true);

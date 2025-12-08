@@ -1,3 +1,4 @@
+// EN LAS IMPORTACIONES, AGREGA:
 import React, { useState } from "react";
 import {
   View,
@@ -9,6 +10,9 @@ import {
 } from "react-native";
 import { MaterialIcons, Feather } from "@expo/vector-icons";
 import { styles } from "./styles";
+
+// IMPORTAR LA CONFIGURACIÓN
+import { API_BASE_URL } from "../../../../config/api";
 
 const ChangePasswordCard = ({ docenteId }) => {
   const [changingPassword, setChangingPassword] = useState(false);
@@ -43,7 +47,11 @@ const ChangePasswordCard = ({ docenteId }) => {
         confirmPassword: passwordData.confirmPassword,
       };
 
-      const url = `http://10.194.1.108:5000/docente/api/docentes/cambiar-contrasena`;
+      // ANTES:
+      // const url = `http://172.18.4.188:5000/docente/api/docentes/cambiar-contrasena`;
+
+      // DESPUÉS:
+      const url = `${API_BASE_URL}/docente/api/docentes/cambiar-contrasena`;
 
       const response = await fetch(url, {
         method: "POST",

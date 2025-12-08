@@ -1,7 +1,5 @@
-// src/services/DiaEconomicoService.js
-import { getAuthToken } from "../../shared/utils/auth";
-
-const API_BASE = "http://10.194.1.108:5000";
+// IMPORTAR LA CONFIGURACIÓN (ruta relativa al archivo de configuración)
+import { API_BASE_URL } from "../../../../../config/api";
 
 class DiaEconomicoService {
   static async obtenerInformacion() {
@@ -10,7 +8,7 @@ class DiaEconomicoService {
       if (!token) throw new Error("No hay token de autenticación");
 
       const response = await fetch(
-        `${API_BASE}/dias_economicos/info-dias-economicos`,
+        `${API_BASE_URL}/dias_economicos/info-dias-economicos`,
         {
           method: "GET",
           headers: {
@@ -47,7 +45,7 @@ class DiaEconomicoService {
       if (!token) throw new Error("No hay token de autenticación");
 
       const response = await fetch(
-        `${API_BASE}/dias_economicos/dias-economicos`,
+        `${API_BASE_URL}/dias_economicos/dias-economicos`,
         {
           method: "GET",
           headers: {
@@ -84,7 +82,7 @@ class DiaEconomicoService {
       if (!token) throw new Error("No hay token de autenticación");
 
       const response = await fetch(
-        `${API_BASE}/dias_economicos/dias-economicos`,
+        `${API_BASE_URL}/dias_economicos/dias-economicos`,
         {
           method: "POST",
           headers: {
@@ -124,7 +122,7 @@ class DiaEconomicoService {
       if (!token) throw new Error("No hay token de autenticación");
 
       const response = await fetch(
-        `${API_BASE}/dias_economicos/dias-economicos/${id}`,
+        `${API_BASE_URL}/dias_economicos/dias-economicos/${id}`,
         {
           method: "DELETE",
           headers: {
@@ -159,7 +157,7 @@ class DiaEconomicoService {
       if (!token) throw new Error("No hay token de autenticación");
 
       const response = await fetch(
-        `${API_BASE}/dias_economicos/dias-economicos/estado`,
+        `${API_BASE_URL}/dias_economicos/dias-economicos/estado`,
         {
           method: "GET",
           headers: {

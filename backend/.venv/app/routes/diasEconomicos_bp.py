@@ -31,6 +31,57 @@ def obtener_periodo_activo():
     except Exception as e:
         print(f"❌ Error obteniendo período activo: {e}")
         return None
+def inicializar_control_dias(docente_id, periodo_id):
+    """Inicializar registro en CONTROL_DIAS_ECONOMICOS si no existe"""
+    try:
+        # Verificar si ya existe
+        control_result = supabase.table('CONTROL_DIAS_ECONOMICOS')\
+            .select('*')\
+            .eq('docente_id', docente_id)\
+            .eq('periodo_id', periodo_id)\
+            .execute()
+        
+        if control_result.data and len(control_result.data) > 0:
+            return True  # Ya existe
+        
+        # Obtener configuración para calcular límite
+        config_docente = obtener_configuracion_docente(docente_id)
+        if not config_docente:
+            print(f"No se pudo obtener configuración para docente {docente_id}")
+            return False
+        
+        total_dias = config_docente['config'].get('dias_economicos_limite', 0)
+        
+        # Contar días ya aprobados (por si ya hay solicitudes antes de crear el control)
+        dias_aprobados_result = supabase.table('DIAS_ECONOMICOS')\
+            .select('id')\
+            .eq('docente_id', docente_id)\
+            .eq('periodo_id', periodo_id)\
+            .eq('estado', 'aprobado')\
+            .execute()
+        
+        dias_usados = len(dias_aprobados_result.data) if dias_aprobados_result.data else 0
+        
+        # Crear registro
+        nuevo_control = {
+            'docente_id': docente_id,
+            'periodo_id': periodo_id,
+            'dias_usados': dias_usados,
+            'dias_disponibles': total_dias - dias_usados,
+            'created_at': datetime.now().isoformat(),
+            'updated_at': datetime.now().isoformat()
+        }
+        
+        result = supabase.table('CONTROL_DIAS_ECONOMICOS')\
+            .insert(nuevo_control)\
+            .execute()
+        
+        print(f"✅ Control inicializado para docente {docente_id}: {dias_usados}/{total_dias} días usados")
+        return True
+        
+    except Exception as e:
+        print(f"❌ Error inicializando control: {e}")
+        return False
 
 # ==================== FUNCIONES AUXILIARES ====================
 def calcular_dias_disponibles_mejorado(docente_id, periodo_id=None):
@@ -119,65 +170,123 @@ def obtener_periodo_activo():
         return None
 
 def obtener_configuracion_docente(docente_id):
-    """Obtener configuración de días económicos para un docente"""
+    """Obtener configuración de días económicos para un docente - CORREGIDA"""
     try:
+        print(f"🔍 BUSCANDO CONFIGURACIÓN PARA DOCENTE ID: {docente_id}")
+        
         # Obtener datos del docente
-        docente_result = supabase.table('DOCENTES').select('''
-            id, nombre, apellido, tipo_colaborador, tipodocente_id,
-            TIPO_DOCENTE!inner(id, tipo_contrato)
-        ''').eq('id', docente_id).execute()
+        docente_result = supabase.table('DOCENTES').select('*').eq('id', docente_id).execute()
         
         if not docente_result.data:
+            print(f"❌ Docente {docente_id} no encontrado")
             return None
         
         docente = docente_result.data[0]
-        tipo_colaborador = docente.get('tipo_colaborador', '').lower() or 'colaborador'
-        tipo_contrato = docente.get('TIPO_DOCENTE', {}).get('tipo_contrato', '').lower()
         
-        # Buscar configuración
+        # Obtener tipo de colaborador (limpiar y normalizar)
+        tipo_colaborador_raw = docente.get('tipo_colaborador', '')
+        tipo_colaborador = str(tipo_colaborador_raw).strip().lower()
+        
+        # Obtener tipo de contrato del TIPO_DOCENTE
+        tipo_contrato = 'anual'  # valor por defecto
+        
+        if docente.get('tipodocente_id'):
+            tipo_docente_result = supabase.table('TIPO_DOCENTE')\
+                .select('tipo_contrato')\
+                .eq('id', docente['tipodocente_id'])\
+                .execute()
+            
+            if tipo_docente_result.data:
+                tipo_contrato_raw = tipo_docente_result.data[0].get('tipo_contrato', '')
+                tipo_contrato = str(tipo_contrato_raw).strip().lower()
+        
+        print(f"📊 Docente ID {docente_id}: tipo_colaborador='{tipo_colaborador}', tipo_contrato='{tipo_contrato}'")
+        
+        # Buscar configuración (comparando en minúsculas)
         config_result = supabase.table('configuracion_sistema').select('*').execute()
         
-        for config in (config_result.data or []):
-            if (config.get('tipo_docente', '').lower() == tipo_colaborador and 
-                config.get('tipo_contrato', '').lower() == tipo_contrato):
-                return {
-                    'docente': docente,
-                    'config': config,
-                    'tipo_contrato': tipo_contrato,
-                    'tipo_colaborador': tipo_colaborador
-                }
+        if config_result.data:
+            for config in config_result.data:
+                config_tipo_docente = str(config.get('tipo_docente', '')).strip().lower()
+                config_tipo_contrato = str(config.get('tipo_contrato', '')).strip().lower()
+                
+                print(f"  ➡️ Comparando con configuración: tipo_docente='{config_tipo_docente}', tipo_contrato='{config_tipo_contrato}'")
+                
+                # Comparar ambos campos
+                if (config_tipo_docente == tipo_colaborador and 
+                    config_tipo_contrato == tipo_contrato):
+                    print(f"✅ Configuración encontrada para docente {docente_id}")
+                    return {
+                        'docente': docente,
+                        'config': config,
+                        'tipo_contrato': tipo_contrato,
+                        'tipo_colaborador': tipo_colaborador
+                    }
         
-        # Si no encuentra, usar valores por defecto basados en reglas
+        # Si no encuentra configuración exacta, usar valores por defecto
+        print(f"⚠️ Usando configuración por defecto para docente {docente_id}")
+        
+        # Valores por defecto basados en tipo de contrato
         if tipo_contrato == 'cuatrimestral':
-            return {
-                'docente': docente,
-                'config': {
-                    'dias_economicos_limite': 3,
-                    'renovacion_mensual': True
-                },
-                'tipo_contrato': tipo_contrato,
-                'tipo_colaborador': tipo_colaborador
+            config_default = {
+                'dias_economicos_limite': 3,
+                'renovacion_mensual': True,
+                'tipo_docente': tipo_colaborador,
+                'tipo_contrato': tipo_contrato
             }
-        else:  # anual
-            return {
-                'docente': docente,
-                'config': {
-                    'dias_economicos_limite': 5,
-                    'renovacion_mensual': False
-                },
-                'tipo_contrato': tipo_contrato,
-                'tipo_colaborador': tipo_colaborador
+        else:  # anual o default
+            config_default = {
+                'dias_economicos_limite': 5,
+                'renovacion_mensual': False,
+                'tipo_docente': tipo_colaborador,
+                'tipo_contrato': tipo_contrato
             }
+        
+        return {
+            'docente': docente,
+            'config': config_default,
+            'tipo_contrato': tipo_contrato,
+            'tipo_colaborador': tipo_colaborador
+        }
             
     except Exception as e:
-        print(f"Error obteniendo configuración: {e}")
+        print(f"❌ Error en obtener_configuracion_docente: {e}")
+        traceback.print_exc()
         return None
+@diasEconomicos_bp.route('/debug-docente/<int:docente_id>', methods=['GET'])
+def debug_docente(docente_id):
+    """Endpoint para debug de configuración de docente"""
+    try:
+        config = obtener_configuracion_docente(docente_id)
+        
+        if not config:
+            return jsonify({
+                'success': False,
+                'error': f'No se pudo obtener configuración para docente {docente_id}'
+            }), 404
+        
+        # También verificar días disponibles
+        periodo = obtener_periodo_activo()
+        periodo_id = periodo['id'] if periodo else None
+        
+        dias_info = calcular_dias_disponibles(docente_id, periodo_id)
+        
+        return jsonify({
+            'success': True,
+            'docente_id': docente_id,
+            'configuracion': config,
+            'dias_disponibles': dias_info,
+            'periodo_activo': periodo
+        })
+        
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
 # Agregar esta función al archivo diasEconomicos_bp.py
 def actualizar_contador_dias_usados(docente_id, periodo_id, incrementar=True):
     """
     Actualiza el contador de días usados para un docente en un período
     incrementar=True: suma un día usado (cuando se aprueba)
-    incrementar=False: resta un día usado (cuando se cancela/rechaza)
+    incrementar=False: resta un día usado (cuando se cancela/rechaza una solicitud APROBADA)
     """
     try:
         # Obtener configuración del docente
@@ -185,6 +294,8 @@ def actualizar_contador_dias_usados(docente_id, periodo_id, incrementar=True):
         if not config_docente:
             print(f"No se pudo obtener configuración para docente {docente_id}")
             return False
+        
+        total_dias = config_docente['config'].get('dias_economicos_limite', 0)
         
         # Buscar si existe un registro de control para este docente en este período
         control_result = supabase.table('CONTROL_DIAS_ECONOMICOS')\
@@ -205,7 +316,7 @@ def actualizar_contador_dias_usados(docente_id, periodo_id, incrementar=True):
             
             update_data = {
                 'dias_usados': new_dias_usados,
-                'dias_disponibles': config_docente['config'].get('dias_economicos_limite', 0) - new_dias_usados,
+                'dias_disponibles': total_dias - new_dias_usados,
                 'updated_at': datetime.now().isoformat()
             }
             
@@ -215,9 +326,9 @@ def actualizar_contador_dias_usados(docente_id, periodo_id, incrementar=True):
                 .execute()
             
         else:
-            # Crear nuevo registro de control
+            # Crear nuevo registro de control (para primera aprobación)
             dias_usados = 1 if incrementar else 0
-            dias_disponibles = config_docente['config'].get('dias_economicos_limite', 0) - dias_usados
+            dias_disponibles = total_dias - dias_usados
             
             new_control = {
                 'docente_id': docente_id,
@@ -232,62 +343,13 @@ def actualizar_contador_dias_usados(docente_id, periodo_id, incrementar=True):
                 .insert(new_control)\
                 .execute()
         
+        print(f"✅ Contador actualizado: docente {docente_id}, {'+' if incrementar else '-'}1 día")
         return True
         
     except Exception as e:
         print(f"Error actualizando contador de días usados: {e}")
         traceback.print_exc()
         return False
-
-def calcular_dias_disponibles(docente_id, periodo_id=None):
-    """Calcular días disponibles para un docente en un período"""
-    try:
-        # Obtener período activo si no se especifica
-        if not periodo_id:
-            periodo = obtener_periodo_activo()
-            if not periodo:
-                return {'disponibles': 0, 'usados': 0, 'total': 0, 'error': 'No hay período activo'}
-            periodo_id = periodo['id']
-        
-        # Obtener configuración del docente
-        config_docente = obtener_configuracion_docente(docente_id)
-        if not config_docente:
-            return {'disponibles': 0, 'usados': 0, 'total': 0, 'error': 'Configuración no encontrada'}
-        
-        config = config_docente['config']
-        tipo_contrato = config_docente['tipo_contrato']
-        es_mensual = config.get('renovacion_mensual', False)
-        
-        # Obtener días ya usados en este período
-        query = supabase.table('DIAS_ECONOMICOS').select('id, fecha').eq('docente_id', docente_id).eq('periodo_id', periodo_id)
-        
-        if es_mensual:
-            # Para renovación mensual, contar solo días del mes actual
-            hoy = date.today()
-            primer_dia_mes = hoy.replace(day=1)
-            ultimo_dia_mes = hoy.replace(day=28) + timedelta(days=4)
-            ultimo_dia_mes = ultimo_dia_mes.replace(day=1) - timedelta(days=1)
-            
-            query = query.gte('fecha', primer_dia_mes.isoformat()).lte('fecha', ultimo_dia_mes.isoformat())
-        
-        result = query.execute()
-        dias_usados = len(result.data) if result.data else 0
-        
-        # Calcular total disponible
-        total_dias = config.get('dias_economicos_limite', 0)
-        dias_disponibles = max(0, total_dias - dias_usados)
-        
-        return {
-            'disponibles': dias_disponibles,
-            'usados': dias_usados,
-            'total': total_dias,
-            'es_mensual': es_mensual,
-            'tipo_contrato': tipo_contrato
-        }
-        
-    except Exception as e:
-        print(f"Error calculando días disponibles: {e}")
-        return {'disponibles': 0, 'usados': 0, 'total': 0, 'error': str(e)}
 
 # ==================== RUTAS PARA DOCENTES ====================
 
@@ -314,7 +376,7 @@ def obtener_mis_solicitudes():
         solicitudes = result.data if result.data else []
         
         # Calcular estadísticas
-        stats = calcular_dias_disponibles(docente_id, periodo['id'])
+        stats = calcular_dias_disponibles_mejorado(docente_id, periodo['id'])  # ← CORRECTO
         
         return jsonify({
             'success': True,
@@ -338,10 +400,11 @@ def obtener_mis_solicitudes():
 @diasEconomicos_bp.route('/solicitar', methods=['POST'])
 @docente_required
 def solicitar_dia_economico():
-    """Solicitar un nuevo día económico"""
+    """Solicitar un nuevo día económico - SOLO 1 DÍA POR SOLICITUD"""
     try:
         data = request.get_json()
-        
+        print(f"📥 DATOS RECIBIDOS EN SOLICITAR DÍA ECONÓMICO: {data}")
+
         # Validaciones
         required_fields = ['docente_id', 'fecha', 'motivo']
         for field in required_fields:
@@ -377,17 +440,49 @@ def solicitar_dia_economico():
         if docente.get('estado', '').lower() != 'activo':
             return jsonify({'success': False, 'error': 'El docente no está activo'}), 400
         
-        # Verificar días disponibles
-        stats = calcular_dias_disponibles(docente_id, periodo['id'])
+        # VERIFICAR NUEVA CONDICIÓN: No puede tener solicitudes pendientes
+        solicitudes_pendientes_result = supabase.table('DIAS_ECONOMICOS')\
+            .select('id, fecha, estado')\
+            .eq('docente_id', docente_id)\
+            .eq('periodo_id', periodo['id'])\
+            .eq('estado', 'pendiente')\
+            .execute()
+        
+        if solicitudes_pendientes_result.data and len(solicitudes_pendientes_result.data) > 0:
+            solicitudes_pendientes = solicitudes_pendientes_result.data
+            fechas_pendientes = [s['fecha'] for s in solicitudes_pendientes]
+            
+            return jsonify({
+                'success': False, 
+                'error': f'Ya tienes {len(solicitudes_pendientes)} solicitud(es) pendiente(s). Debes esperar a que sean aprobadas o canceladas antes de solicitar otro día.',
+                'solicitudes_pendientes': solicitudes_pendientes,
+                'detalle': 'Solo puedes tener una solicitud pendiente a la vez'
+            }), 400
+        
+        # Verificar días disponibles (solo aprobados)
+        stats = calcular_dias_disponibles_mejorado(docente_id, periodo['id'])
         if stats['disponibles'] <= 0:
             return jsonify({'success': False, 'error': 'No tiene días económicos disponibles'}), 400
         
-        # Verificar que no tenga ya una solicitud para esa fecha
-        existing_result = supabase.table('DIAS_ECONOMICOS').select('id').eq('docente_id', docente_id).eq('fecha', fecha_str).execute()
-        if existing_result.data and len(existing_result.data) > 0:
-            return jsonify({'success': False, 'error': 'Ya tiene una solicitud para esta fecha'}), 400
+        # Verificar que no tenga ya una solicitud (aprobada/rechazada) para esa fecha
+        existing_result = supabase.table('DIAS_ECONOMICOS')\
+            .select('id, estado')\
+            .eq('docente_id', docente_id)\
+            .eq('fecha', fecha_str)\
+            .in_('estado', ['pendiente', 'aprobado', 'rechazado'])\
+            .execute()
         
-        # Crear la solicitud
+        if existing_result.data and len(existing_result.data) > 0:
+            solicitud_existente = existing_result.data[0]
+            estado_existente = solicitud_existente.get('estado', '').lower()
+            
+            if estado_existente in ['pendiente', 'aprobado']:
+                return jsonify({
+                    'success': False, 
+                    'error': 'Ya tienes una solicitud para esta fecha'
+                }), 400
+        
+        # Crear la solicitud (siempre 1 día)
         nueva_solicitud = {
             'docente_id': docente_id,
             'periodo_id': periodo['id'],
@@ -404,8 +499,9 @@ def solicitar_dia_economico():
         
         return jsonify({
             'success': True,
-            'message': 'Solicitud enviada para revisión',
-            'data': result.data[0] if result.data else None
+            'message': 'Solicitud enviada para revisión (1 día)',
+            'data': result.data[0] if result.data else None,
+            'estadisticas': stats  # Devolver estadísticas actualizadas
         })
         
     except Exception as e:
@@ -415,7 +511,7 @@ def solicitar_dia_economico():
 @diasEconomicos_bp.route('/<int:solicitud_id>/cancelar', methods=['PUT'])
 @docente_required
 def cancelar_solicitud(solicitud_id):
-    """Cancelar una solicitud pendiente o aprobada"""
+    """Cancelar una solicitud pendiente (NO aprobada)"""
     try:
         # Verificar que la solicitud existe
         result = supabase.table('DIAS_ECONOMICOS').select('*').eq('id', solicitud_id).execute()
@@ -428,21 +524,36 @@ def cancelar_solicitud(solicitud_id):
         docente_id = solicitud.get('docente_id')
         periodo_id = solicitud.get('periodo_id')
         
-        # Si la solicitud ya está cancelada
+        # Validar estado de la solicitud
         if estado_actual == 'cancelado':
             return jsonify({'success': False, 'error': 'La solicitud ya está cancelada'}), 400
         
-        # Si está aprobada, verificar fecha para cancelación
+        if estado_actual == 'rechazado':
+            return jsonify({'success': False, 'error': 'No se puede cancelar una solicitud rechazada'}), 400
+        
+        # IMPORTANTE: NO permitir cancelar si está APROBADA
         if estado_actual == 'aprobado':
-            fecha_solicitud = datetime.strptime(solicitud['fecha'], '%Y-%m-%d').date()
-            hoy = date.today()
-            
-            # Solo permitir cancelar solicitudes aprobadas si la fecha es futura
-            if fecha_solicitud < hoy:
-                return jsonify({
-                    'success': False, 
-                    'error': 'No se pueden cancelar días económicos ya disfrutados'
-                }), 400
+            return jsonify({
+                'success': False, 
+                'error': 'No se pueden cancelar días económicos ya aprobados. Contacte al administrador.'
+            }), 400
+        
+        # Solo permitir cancelar si está PENDIENTE
+        if estado_actual != 'pendiente':
+            return jsonify({
+                'success': False, 
+                'error': f'No se puede cancelar una solicitud en estado "{estado_actual}"'
+            }), 400
+        
+        # Verificar fecha (no permitir cancelar si ya pasó la fecha)
+        fecha_solicitud = datetime.strptime(solicitud['fecha'], '%Y-%m-%d').date()
+        hoy = date.today()
+        
+        if fecha_solicitud < hoy:
+            return jsonify({
+                'success': False, 
+                'error': 'No se pueden cancelar solicitudes de fechas pasadas'
+            }), 400
         
         # Cancelar la solicitud
         update_result = supabase.table('DIAS_ECONOMICOS')\
@@ -456,34 +567,25 @@ def cancelar_solicitud(solicitud_id):
         if hasattr(update_result, 'error') and update_result.error:
             return jsonify({'success': False, 'error': f'Error en base de datos: {str(update_result.error)}'}), 400
         
-        # Si la solicitud estaba aprobada, devolver el día al contador
-        if estado_actual == 'aprobado':
-            if not actualizar_contador_dias_usados(docente_id, periodo_id, incrementar=False):
-                print(f"Advertencia: No se pudo actualizar el contador para docente {docente_id}")
-            
-            # Recalcular estadísticas
-            nuevo_stats = calcular_dias_disponibles(docente_id, periodo_id)
-            
-            return jsonify({
-                'success': True,
-                'message': 'Solicitud aprobada cancelada exitosamente. Se ha devuelto el día económico.',
-                'data': update_result.data[0] if update_result.data else None,
-                'estadisticas': {
-                    'dias_disponibles': nuevo_stats['disponibles'],
-                    'dias_usados': nuevo_stats['usados']
-                }
-            })
+        # IMPORTANTE: NO restar días usados porque nunca se aprobó
+        # El contador solo se afecta con APROBADOS
+        
+        # Recalcular estadísticas (pero no cambian porque no se afectaron días aprobados)
+        nuevo_stats = calcular_dias_disponibles_mejorado(docente_id, periodo_id)
         
         return jsonify({
             'success': True,
-            'message': 'Solicitud cancelada exitosamente',
-            'data': update_result.data[0] if update_result.data else None
+            'message': 'Solicitud cancelada exitosamente. Puedes solicitar otro día.',
+            'data': update_result.data[0] if update_result.data else None,
+            'estadisticas': {
+                'dias_disponibles': nuevo_stats['disponibles'],
+                'dias_usados': nuevo_stats['usados']
+            }
         })
         
     except Exception as e:
         print(f"Error cancelando solicitud: {e}")
         return jsonify({'success': False, 'error': f'Error interno: {str(e)}'}), 500
-
 # ==================== RUTAS PARA ADMINISTRADORES ====================
 
 @diasEconomicos_bp.route('/pendientes', methods=['GET'])
@@ -525,16 +627,17 @@ def obtener_solicitudes_pendientes():
         print(f"❌ Error: {e}")
         return jsonify({'success': False, 'error': str(e)}), 500
 
+# backend/diasEconomicos_bp.py - CORRECCIÓN DE ENDPOINTS
+
 @diasEconomicos_bp.route('/<int:solicitud_id>/aprobar', methods=['PUT'])
 @admin_required
 def aprobar_solicitud(solicitud_id):
-    """Aprobar una solicitud de día económico y descontar del límite"""
+    """Aprobar una solicitud de día económico - VERSIÓN CORREGIDA SIN aprobado_en"""
     try:
-        # Verificar que la solicitud existe y está pendiente
-        result = supabase.table('DIAS_ECONOMICOS').select('''
-            *,
-            DOCENTES!inner(id, nombre, apellido)
-        ''').eq('id', solicitud_id).execute()
+        print(f"🟢 INICIANDO APROBACIÓN DE SOLICITUD ID: {solicitud_id}")
+        
+        # Verificar que la solicitud existe
+        result = supabase.table('DIAS_ECONOMICOS').select('*').eq('id', solicitud_id).execute()
         
         if not result.data or len(result.data) == 0:
             return jsonify({'success': False, 'error': 'Solicitud no encontrada'}), 404
@@ -547,102 +650,20 @@ def aprobar_solicitud(solicitud_id):
         docente_id = solicitud.get('docente_id')
         periodo_id = solicitud.get('periodo_id')
         
-        # Verificar que el docente todavía tiene días disponibles
-        stats = calcular_dias_disponibles(docente_id, periodo_id)
+        # Verificar días disponibles
+        stats = calcular_dias_disponibles_mejorado(docente_id, periodo_id)
         
         if stats['disponibles'] <= 0:
             return jsonify({
                 'success': False, 
-                'error': f'El docente ya no tiene días disponibles. Usados: {stats["usados"]}/{stats["total"]}'
+                'error': f'No tiene días disponibles. Usados: {stats["usados"]}/{stats["total"]}'
             }), 400
         
-        # Verificar que no se haya excedido el límite considerando renovación mensual
-        if stats.get('es_mensual', False):
-            # Para contratos mensuales, verificar límite mensual
-            hoy = date.today()
-            primer_dia_mes = hoy.replace(day=1)
-            mes_actual = primer_dia_mes.strftime('%Y-%m')
-            
-            # Contar aprobados este mes
-            aprobados_mes_result = supabase.table('DIAS_ECONOMICOS')\
-                .select('id')\
-                .eq('docente_id', docente_id)\
-                .eq('periodo_id', periodo_id)\
-                .eq('estado', 'aprobado')\
-                .gte('fecha', primer_dia_mes.isoformat())\
-                .execute()
-            
-            aprobados_este_mes = len(aprobados_mes_result.data) if aprobados_mes_result.data else 0
-            
-            if aprobados_este_mes >= stats['total']:
-                return jsonify({
-                    'success': False, 
-                    'error': f'El docente ya usó todos sus días económicos para este mes ({stats["total"]} días)'
-                }), 400
-        
-        # Aprobar la solicitud
-        update_result = supabase.table('DIAS_ECONOMICOS')\
-            .update({
-                'estado': 'aprobado',
-                'aprobado_en': datetime.now().isoformat()
-            })\
-            .eq('id', solicitud_id)\
-            .execute()
-        
-        if hasattr(update_result, 'error') and update_result.error:
-            return jsonify({'success': False, 'error': f'Error en base de datos: {str(update_result.error)}'}), 400
-        
-        # ACTUALIZAR CONTADOR DE DÍAS USADOS - ¡ESTO RESTA UN DÍA!
-        if not actualizar_contador_dias_usados(docente_id, periodo_id, incrementar=True):
-            print(f"Advertencia: No se pudo actualizar el contador para docente {docente_id}")
-        
-        # Recalcular días disponibles después de la aprobación
-        nuevo_stats = calcular_dias_disponibles(docente_id, periodo_id)
-        
-        return jsonify({
-            'success': True,
-            'message': 'Solicitud aprobada exitosamente',
-            'data': update_result.data[0] if update_result.data else None,
-            'estadisticas': {
-                'disponibles_antes': stats['disponibles'],
-                'disponibles_despues': nuevo_stats['disponibles'],
-                'dias_usados': nuevo_stats['usados'],
-                'dias_totales': nuevo_stats['total']
-            }
-        })
-        
-    except Exception as e:
-        print(f"Error aprobando solicitud: {e}")
-        traceback.print_exc()
-        return jsonify({'success': False, 'error': f'Error interno: {str(e)}'}), 500
-
-@diasEconomicos_bp.route('/<int:solicitud_id>/rechazar', methods=['PUT'])
-@admin_required
-def rechazar_solicitud(solicitud_id):
-    """Rechazar una solicitud de día económico"""
-    try:
-        # Verificar que la solicitud existe
-        result = supabase.table('DIAS_ECONOMICOS').select('*').eq('id', solicitud_id).execute()
-        
-        if not result.data or len(result.data) == 0:
-            return jsonify({'success': False, 'error': 'Solicitud no encontrada'}), 404
-        
-        solicitud = result.data[0]
-        estado_actual = solicitud.get('estado')
-        
-        if estado_actual not in ['pendiente', 'aprobado']:
-            return jsonify({'success': False, 'error': 'La solicitud no puede ser rechazada en su estado actual'}), 400
-        
-        data = request.get_json() or {}
-        motivo_rechazo = data.get('motivo_rechazo', '')
-        docente_id = solicitud.get('docente_id')
-        periodo_id = solicitud.get('periodo_id')
-        
-        # Actualizar la solicitud
+        # Aprobar la solicitud - SOLO CAMBIAR EL ESTADO
         update_data = {
-            'estado': 'rechazado',
-            'motivo_rechazo': motivo_rechazo if motivo_rechazo else None,
-            'rechazado_en': datetime.now().isoformat()
+            'estado': 'aprobado',
+            # NO incluir 'aprobado_en' si la columna no existe
+ 
         }
         
         update_result = supabase.table('DIAS_ECONOMICOS')\
@@ -653,23 +674,61 @@ def rechazar_solicitud(solicitud_id):
         if hasattr(update_result, 'error') and update_result.error:
             return jsonify({'success': False, 'error': f'Error en base de datos: {str(update_result.error)}'}), 400
         
-        # Si estaba aprobada previamente, devolver el día al contador
+        # Actualizar contador
+        if not actualizar_contador_dias_usados(docente_id, periodo_id, incrementar=True):
+            print(f"⚠️ No se pudo actualizar el contador")
+        
+        return jsonify({
+            'success': True,
+            'message': 'Solicitud aprobada exitosamente',
+            'data': update_result.data[0] if update_result.data else None
+        })
+        
+    except Exception as e:
+        print(f"Error aprobando solicitud: {e}")
+        traceback.print_exc()
+        return jsonify({'success': False, 'error': f'Error interno: {str(e)}'}), 500
+
+@diasEconomicos_bp.route('/<int:solicitud_id>/rechazar', methods=['PUT'])
+@admin_required
+def rechazar_solicitud(solicitud_id):
+    """Rechazar una solicitud de día económico - VERSIÓN CORREGIDA SIN rechazado_en"""
+    try:
+        print(f"🔴 INICIANDO RECHAZO DE SOLICITUD ID: {solicitud_id}")
+        
+        # Verificar que la solicitud existe
+        result = supabase.table('DIAS_ECONOMICOS').select('*').eq('id', solicitud_id).execute()
+        
+        if not result.data or len(result.data) == 0:
+            return jsonify({'success': False, 'error': 'Solicitud no encontrada'}), 404
+        
+        solicitud = result.data[0]
+        estado_actual = solicitud.get('estado')
+        docente_id = solicitud.get('docente_id')
+        periodo_id = solicitud.get('periodo_id')
+        
+        if estado_actual not in ['pendiente', 'aprobado']:
+            return jsonify({'success': False, 'error': f'No se puede rechazar en estado "{estado_actual}"'}), 400
+        
+        # Rechazar la solicitud - SOLO CAMBIAR EL ESTADO
+        update_data = {
+            'estado': 'rechazado',
+            # NO incluir 'rechazado_en' si la columna no existe
+         
+        }
+        
+        update_result = supabase.table('DIAS_ECONOMICOS')\
+            .update(update_data)\
+            .eq('id', solicitud_id)\
+            .execute()
+        
+        if hasattr(update_result, 'error') and update_result.error:
+            return jsonify({'success': False, 'error': f'Error en base de datos: {str(update_result.error)}'}), 400
+        
+        # Si estaba APROBADA, devolver el día al contador
         if estado_actual == 'aprobado':
             if not actualizar_contador_dias_usados(docente_id, periodo_id, incrementar=False):
-                print(f"Advertencia: No se pudo actualizar el contador para docente {docente_id}")
-            
-            # Recalcular estadísticas
-            nuevo_stats = calcular_dias_disponibles(docente_id, periodo_id)
-            
-            return jsonify({
-                'success': True,
-                'message': 'Solicitud aprobada rechazada. Se ha devuelto el día económico.',
-                'data': update_result.data[0] if update_result.data else None,
-                'estadisticas': {
-                    'dias_disponibles': nuevo_stats['disponibles'],
-                    'dias_usados': nuevo_stats['usados']
-                }
-            })
+                print(f"⚠️ No se pudo actualizar el contador")
         
         return jsonify({
             'success': True,

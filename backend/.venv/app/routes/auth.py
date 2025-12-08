@@ -1,6 +1,8 @@
 from flask import Blueprint, request, jsonify
 from ..extensions import supabase
-from datetime import datetime
+import jwt
+from datetime import datetime, timedelta  # <-- AÑADIR timedelta
+import os
 
 auth_bp = Blueprint("auth", __name__)
 
@@ -257,3 +259,113 @@ def activar_cuenta_docente(credencial, email):
 
     except Exception as e:
         return jsonify({"error": f"Error activando la cuenta: {str(e)}"}), 500
+JWT_SECRET = os.environ.get("JWT_SECRET", "tu_super_secreto_seguro_aqui")
+
+@auth_bp.route("/refresh", methods=["POST"])
+def refresh_token():
+    try:
+        data = request.get_json()
+        refresh_token = data.get("refresh_token")
+        
+        if not refresh_token:
+            return jsonify({"error": "Refresh token requerido"}), 400
+        
+        print(f"🔄 Intentando refrescar con token: {refresh_token[:20]}...")
+        
+        # IMPORTANTE: Supabase auth.refresh_session necesita un objeto session
+        # no solo el refresh token. Prueba este enfoque alternativo:
+        try:
+            # Enfoque 1: Usar set_session con el refresh token
+            supabase.auth.set_session(refresh_token, refresh_token)
+            
+            # Obtener sesión actual
+            current_session = supabase.auth.get_session()
+            
+            if not current_session:
+                return jsonify({"error": "No se pudo obtener sesión refrescada"}), 401
+            
+            session = current_session
+            user = supabase.auth.get_user()
+            
+            print(f"✅ Sesión refrescada para: {user.user.email if user else 'N/A'}")
+            
+        except Exception as auth_error:
+            print(f"❌ Error refrescando sesión: {auth_error}")
+            return jsonify({"error": "Refresh token inválido o expirado"}), 401
+        
+        # Obtener datos del usuario
+        user_id = user.user.id if user else None
+        email = user.user.email if user else None
+        
+        if not user_id:
+            return jsonify({"error": "Usuario no encontrado"}), 401
+        
+        # Obtener rol y datos del docente
+        rol_id = 2
+        docente_id = None
+        estado = "activo"
+        
+        try:
+            # Obtener rol del usuario
+            rol_data = supabase.table("USER_ROL") \
+                .select("rol_id") \
+                .eq("user_id", user_id) \
+                .execute()
+            rol_id = rol_data.data[0]["rol_id"] if rol_data.data else 2
+        except Exception as rol_error:
+            print(f"⚠️ Error obteniendo rol: {rol_error}")
+        
+        try:
+            # Obtener datos del docente
+            docente_data = supabase.table("DOCENTES") \
+                .select("id, estado") \
+                .eq("correo_institucional", email) \
+                .execute()
+            
+            if docente_data.data:
+                docente_id = docente_data.data[0]["id"]
+                estado = docente_data.data[0]["estado"] or "activo"
+        except Exception as docente_error:
+            print(f"⚠️ Error obteniendo datos docente: {docente_error}")
+        
+        # Calcular fecha de expiración (1 hora desde ahora)
+        expires_at = int((datetime.utcnow() + timedelta(hours=1)).timestamp())
+        
+        # **OPCIONAL**: Si quieres crear un JWT personalizado
+        # Descomenta esto solo si tu frontend lo necesita
+        """
+        payload = {
+            "user_id": user_id,
+            "email": email,
+            "rol_id": rol_id,
+            "docente_id": docente_id,
+            "estado": estado,
+            "exp": expires_at,
+            "iat": int(datetime.utcnow().timestamp())
+        }
+        
+        custom_token = jwt.encode(payload, JWT_SECRET, algorithm="HS256")
+        """
+        
+        response_data = {
+            "access_token": session.access_token,
+            "refresh_token": session.refresh_token,
+            "expires_at": expires_at,  # Usa el cálculo local
+            "expires_in": 3600,
+            "token_type": "bearer",
+            "user": {
+                "id": user_id,
+                "docente_id": docente_id,
+                "email": email,
+                "rol_id": rol_id,
+                "estado": estado
+            }
+            # "custom_token": custom_token  # Solo si descomentaste arriba
+        }
+        
+        print(f"✅ Token refrescado exitosamente para {email}")
+        return jsonify(response_data), 200
+        
+    except Exception as e:
+        print(f"❌ Error en refresh: {type(e).__name__}: {str(e)}")
+        return jsonify({"error": f"Error interno del servidor: {str(e)}"}), 500

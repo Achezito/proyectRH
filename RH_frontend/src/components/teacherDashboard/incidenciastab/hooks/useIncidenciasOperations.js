@@ -4,7 +4,7 @@ import { Alert } from "react-native";
 import { useIncidencias } from "./useIncidencias";
 import { getAuthToken } from "../shared/utils/auth";
 
-const API_BASE = "http://10.194.1.108:5000";
+import { API_BASE_URL } from "../../../../config/api";
 
 export const useIncidenciasOperations = (docenteId) => {
   const {
@@ -64,7 +64,7 @@ export const useIncidenciasOperations = (docenteId) => {
       }
 
       const response = await fetch(
-        `${API_BASE}/dias_economicos/dias-economicos/${diaEconomicoId}`,
+        `${API_BASE_URL}/dias_economicos/dias-economicos/${diaEconomicoId}`,
         {
           method: "DELETE",
           headers: {
@@ -139,7 +139,7 @@ export const useIncidenciasOperations = (docenteId) => {
       }
 
       const response = await fetch(
-        `${API_BASE}/cumpleaños/cumpleanos/${cumpleanosId}`,
+        `${API_BASE_URL}/cumpleaños/cumpleanos/${cumpleanosId}`,
         {
           method: "DELETE",
           headers: {

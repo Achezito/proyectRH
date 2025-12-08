@@ -1,4 +1,4 @@
-// src/screens/administrador/ConfigDiasEconomicosScreen.js
+// EN LAS IMPORTACIONES, AGREGA:
 import React, { useState, useEffect } from "react";
 import {
   View,
@@ -14,19 +14,28 @@ import {
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Save, RefreshCw, AlertCircle, CheckCircle } from "lucide-react-native";
 
+// AGREGAR ESTA IMPORTACIÓN:
+import { API_BASE_URL } from "../../config/api";
+
 const ConfigDiasEconomicosScreen = () => {
   const [configuraciones, setConfiguraciones] = useState([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState({});
   const [modified, setModified] = useState({});
 
-  // Cargar configuraciones
+  // Cargar configuraciones - MODIFICADO
   const cargarConfiguraciones = async () => {
     try {
       setLoading(true);
+
+      // ANTES:
+      // const response = await fetch("http://172.18.4.188:5000/diasEconomicos/configuracion");
+
+      // DESPUÉS:
       const response = await fetch(
-        "http://10.194.1.108:5000/diasEconomicos/configuracion"
+        `${API_BASE_URL}/diasEconomicos/configuracion`
       );
+
       const data = await response.json();
 
       if (data.success) {
@@ -60,7 +69,7 @@ const ConfigDiasEconomicosScreen = () => {
     }));
   };
 
-  // Guardar configuración
+  // Guardar configuración - MODIFICADO
   const handleGuardarConfiguracion = async (configId) => {
     const config = configuraciones.find((c) => c.id === configId);
     if (!config) return;
@@ -68,8 +77,12 @@ const ConfigDiasEconomicosScreen = () => {
     try {
       setSaving((prev) => ({ ...prev, [configId]: true }));
 
+      // ANTES:
+      // const response = await fetch(`http://172.18.4.188:5000/diasEconomicos/configuracion/${configId}`, {...});
+
+      // DESPUÉS:
       const response = await fetch(
-        `http://10.194.1.108:5000/diasEconomicos/configuracion/${configId}`,
+        `${API_BASE_URL}/diasEconomicos/configuracion/${configId}`,
         {
           method: "PUT",
           headers: {
@@ -106,7 +119,6 @@ const ConfigDiasEconomicosScreen = () => {
   const renderConfigCard = (config) => {
     const isModified = modified[config.id];
     const isSaving = saving[config.id];
-
     return (
       <View key={config.id} style={styles.configCard}>
         <View style={styles.configHeader}>

@@ -28,7 +28,7 @@ import ModalEditarDocente from "../../components/ModalEditarDocente";
 import * as FileSystem from "expo-file-system";
 import * as Sharing from "expo-sharing";
 
-const API_BASE_URL = "http://10.194.1.108:5000";
+import { API_BASE_URL } from "../../config/api";
 const { width, height } = Dimensions.get("window");
 
 const DocentesScreen = () => {

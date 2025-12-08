@@ -1,27 +1,49 @@
-// styles.js - VERSIÓN ACTUALIZADA CON SCROLL
-import { StyleSheet } from "react-native";
+// src/components/teacherDashboard/IncidenciasTab/components/modals/styles.js
+import { StyleSheet, Dimensions, Platform } from "react-native";
+
+const isIOS = Platform.OS === "ios";
+
+// Función para obtener dimensiones
+const getWindowDimensions = () => {
+  try {
+    return Dimensions.get("window");
+  } catch (error) {
+    return { width: 390, height: 844 }; // Valores por defecto
+  }
+};
+
+const { width, height } = getWindowDimensions();
 
 export const styles = StyleSheet.create({
+  // ===== MODAL BASE =====
   modalOverlay: {
     flex: 1,
-    backgroundColor: "rgba(0,0,0,0.5)",
-    justifyContent: "center",
-    alignItems: "center",
-    padding: 20,
+    backgroundColor: "rgba(0, 0, 0, 0.5)",
+  },
+  modalContainer: {
+    flex: 1,
+    justifyContent: "flex-end",
   },
   modalContent: {
-    backgroundColor: "white",
-    borderRadius: 16,
-    width: "100%",
-    maxWidth: 400,
-    maxHeight: "80%", // ← AGREGADO: Limitar altura máxima
+    backgroundColor: "#FFFFFF",
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
+    maxHeight: height * 0.85,
+    minHeight: height * 0.6,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: -2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 10,
+    elevation: 10,
   },
+
+  // ===== HEADER =====
   modalHeader: {
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
-    padding: 24,
-    paddingBottom: 16,
+    paddingHorizontal: 20,
+    paddingVertical: 16,
     borderBottomWidth: 1,
     borderBottomColor: "#f1f5f9",
   },
@@ -31,7 +53,7 @@ export const styles = StyleSheet.create({
     color: "#1e293b",
   },
 
-  // NUEVOS ESTILOS PARA SCROLL
+  // ===== SCROLL CONTENT =====
   modalScrollContent: {
     flex: 1,
   },
@@ -40,6 +62,7 @@ export const styles = StyleSheet.create({
     paddingTop: 0,
   },
 
+  // ===== FORM ELEMENTS =====
   modalSubtitle: {
     fontSize: 14,
     color: "#64748b",
@@ -146,7 +169,7 @@ export const styles = StyleSheet.create({
     shadowOpacity: 0.3,
     shadowRadius: 8,
     elevation: 5,
-    marginTop: 8, // ← AGREGADO: Espacio antes del botón
+    marginTop: 8,
   },
   primaryButtonDisabled: {
     backgroundColor: "#9ca3af",
@@ -158,8 +181,8 @@ export const styles = StyleSheet.create({
     fontWeight: "bold",
     fontSize: 16,
   },
-  // Agregar a styles.js
-  // Estilos para el modal de detalle
+
+  // ===== DETAIL MODAL STYLES =====
   detailSection: {
     marginBottom: 20,
     padding: 16,
@@ -256,7 +279,8 @@ export const styles = StyleSheet.create({
     justifyContent: "center",
     paddingLeft: 8,
   },
-  // Agregar a styles.js
+
+  // ===== CONFIRMATION MODAL STYLES =====
   confirmationIcon: {
     alignItems: "center",
     marginBottom: 16,
@@ -303,10 +327,230 @@ export const styles = StyleSheet.create({
     fontWeight: "500",
     fontSize: 16,
   },
-  // En styles.js, agrega:
+
+  // ===== DISABLED STATES =====
   disabledInput: {
     backgroundColor: "#f3f4f6",
     borderColor: "#d1d5db",
     opacity: 0.6,
+  },
+
+  // ===== HEADER CONTAINER (para DiaEconomicoModal) =====
+  headerTitleContainer: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
+  },
+  closeButton: {
+    padding: 4,
+    borderRadius: 20,
+    backgroundColor: "#f8fafc",
+  },
+
+  // ===== BODY =====
+  modalBody: {
+    paddingHorizontal: 20,
+    paddingVertical: 16,
+  },
+
+  // ===== INFO CARD (para DiaEconomicoModal) =====
+  infoCard: {
+    backgroundColor: "#f0f9ff",
+    borderRadius: 12,
+    padding: 16,
+    marginBottom: 20,
+    borderWidth: 1,
+    borderColor: "#bae6fd",
+  },
+  infoCardHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
+    marginBottom: 16,
+  },
+  infoCardTitle: {
+    fontSize: 16,
+    fontWeight: "600",
+    color: "#0369a1",
+  },
+  statsGrid: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    marginBottom: 12,
+  },
+  statCard: {
+    alignItems: "center",
+    flex: 1,
+    padding: 8,
+  },
+  statLabel: {
+    fontSize: 12,
+    color: "#64748b",
+    marginBottom: 4,
+    fontWeight: "500",
+  },
+  statValue: {
+    fontSize: 24,
+    fontWeight: "700",
+    color: "#10b981",
+  },
+  statValueZero: {
+    color: "#ef4444",
+  },
+  typeInfo: {
+    flexDirection: "row",
+    gap: 10,
+    flexWrap: "wrap",
+  },
+  typeBadge: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "#e2e8f0",
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 16,
+    gap: 6,
+  },
+  typeText: {
+    fontSize: 12,
+    color: "#475569",
+    fontWeight: "500",
+  },
+
+  // ===== FORM SECTION (para DiaEconomicoModal) =====
+  formSection: {
+    marginBottom: 24,
+  },
+  label: {
+    fontSize: 14,
+    fontWeight: "600",
+    color: "#1e293b",
+    marginBottom: 8,
+  },
+  helperText: {
+    fontSize: 12,
+    color: "#64748b",
+    marginTop: 4,
+  },
+  spacer: {
+    height: 16,
+  },
+
+  // ===== DATE PICKER (para DiaEconomicoModal) =====
+  datePickerButton: {
+    borderWidth: 1,
+    borderColor: "#d1d5db",
+    borderRadius: 8,
+    padding: 14,
+    backgroundColor: "#ffffff",
+  },
+  datePickerContent: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+  },
+  dateText: {
+    fontSize: 16,
+    color: "#1e293b",
+    flex: 1,
+    marginHorizontal: 12,
+  },
+
+  // ===== MOTIVO INPUT (para DiaEconomicoModal) =====
+  motivoContainer: {
+    borderWidth: 1,
+    borderColor: "#d1d5db",
+    borderRadius: 8,
+    backgroundColor: "#ffffff",
+    overflow: "hidden",
+  },
+  charCounter: {
+    fontSize: 12,
+    color: "#64748b",
+    textAlign: "right",
+    paddingHorizontal: 12,
+    paddingBottom: 8,
+  },
+
+  // ===== SUBMIT BUTTON (para DiaEconomicoModal) =====
+  submitButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: "#3b82f6",
+    paddingVertical: 16,
+    borderRadius: 12,
+    gap: 10,
+    marginBottom: 20,
+    shadowColor: "#3b82f6",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.2,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+  submitButtonDisabled: {
+    backgroundColor: "#94a3b8",
+    shadowOpacity: 0,
+  },
+  submitButtonText: {
+    color: "white",
+    fontSize: 16,
+    fontWeight: "600",
+  },
+
+  // ===== TIPS CARD (para DiaEconomicoModal) =====
+  tipsCard: {
+    backgroundColor: "#f8fafc",
+    borderRadius: 12,
+    padding: 16,
+    borderWidth: 1,
+    borderColor: "#e2e8f0",
+  },
+  tipsHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
+    marginBottom: 12,
+  },
+  tipsTitle: {
+    fontSize: 14,
+    fontWeight: "600",
+    color: "#475569",
+  },
+  tipsList: {
+    gap: 8,
+  },
+  tipItem: {
+    flexDirection: "row",
+    alignItems: "flex-start",
+    gap: 8,
+  },
+  tipText: {
+    fontSize: 13,
+    color: "#64748b",
+    flex: 1,
+    lineHeight: 18,
+  },
+
+  // ===== LOADING STATES =====
+  loadingContainer: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    padding: 20,
+    gap: 12,
+  },
+  loadingText: {
+    fontSize: 14,
+    color: "#64748b",
+  },
+
+  // ===== DISABLED STATES =====
+  disabled: {
+    backgroundColor: "#f8fafc",
+    borderColor: "#e2e8f0",
+  },
+  disabledText: {
+    color: "#94a3b8",
   },
 });

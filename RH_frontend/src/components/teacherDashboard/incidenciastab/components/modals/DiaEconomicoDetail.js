@@ -1,179 +1,470 @@
-// src/components/teacherDashboard/IncidenciasTab/components/modals/DiaEconomicoDetailModal.js
-import React from "react";
+import React, { useState } from "react";
 import {
+  Modal,
   View,
   Text,
-  Modal,
   TouchableOpacity,
-  ScrollView,
   Alert,
   ActivityIndicator,
+  StyleSheet,
+  ScrollView,
 } from "react-native";
-import { Ionicons } from "@expo/vector-icons";
-import { styles } from "./styles";
-import { formatDate } from "../../shared/utils/dateFormatter";
+import { format } from "date-fns";
+import { es } from "date-fns/locale";
+
+const LOCAL_COLORS = {
+  primary: "#007AFF",
+  success: "#34C759",
+  warning: "#FF9500",
+  danger: "#FF3B30",
+  gray: "#8E8E93",
+  text: "#000000",
+  textSecondary: "#6C6C70",
+  background: "#FFFFFF",
+};
 
 const DiaEconomicoDetailModal = ({
   visible,
   onClose,
   diaEconomico,
   onDelete,
-  isDeleting = false,
+  isDeleting,
 }) => {
-  if (!diaEconomico) return null;
+  console.log("🔍 Modal Detalles - Props recibidas:", {
+    visible,
+    diaEconomicoId: diaEconomico?.id,
+    estado: diaEconomico?.estado,
+    onDeleteExists: typeof onDelete === "function",
+    isDeleting,
+  });
 
-  const getEstadoColor = (estado) => {
-    switch (estado?.toLowerCase()) {
-      case "aprobado":
-        return "#10b981";
-      case "pendiente":
-        return "#f59e0b";
-      case "rechazado":
-        return "#ef4444";
-      default:
-        return "#6b7280";
+  if (!diaEconomico) {
+    console.log("⚠️ No hay datos de día económico");
+    return null;
+  }
+
+  const formatFecha = (fechaStr) => {
+    try {
+      return format(new Date(fechaStr), "EEEE dd 'de' MMMM 'de' yyyy", {
+        locale: es,
+      });
+    } catch {
+      return fechaStr;
     }
   };
 
-  const getEstadoText = (estado) => {
-    switch (estado?.toLowerCase()) {
-      case "aprobado":
-        return "Aprobado";
-      case "pendiente":
-        return "Pendiente de revisión";
-      case "rechazado":
-        return "Rechazado";
-      default:
-        return estado || "Desconocido";
+  const formatDateTime = (dateTimeStr) => {
+    try {
+      return format(new Date(dateTimeStr), "dd/MM/yyyy HH:mm", { locale: es });
+    } catch {
+      return dateTimeStr;
     }
   };
 
-  const handleDelete = () => {
-    if (diaEconomico.estado?.toLowerCase() !== "pendiente") {
-      Alert.alert(
-        "No se puede eliminar",
-        "Solo se pueden eliminar solicitudes pendientes",
-        [{ text: "Entendido" }]
-      );
+  const getEstadoInfo = (estado) => {
+    const estadoLower = estado?.toLowerCase() || "pendiente";
+
+    switch (estadoLower) {
+      case "aprobado":
+        return {
+          color: LOCAL_COLORS.success,
+          text: "APROBADO",
+          canDelete: false,
+          deleteText: "No se puede cancelar",
+          message: "✅ Esta solicitud ya fue aprobada.",
+          icon: "✅",
+        };
+      case "pendiente":
+        return {
+          color: LOCAL_COLORS.warning,
+          text: "PENDIENTE",
+          canDelete: true,
+          deleteText: "Cancelar Solicitud",
+          message: "⏳ Pendiente de revisión.",
+          icon: "⏳",
+        };
+      case "rechazado":
+        return {
+          color: LOCAL_COLORS.danger,
+          text: "RECHAZADO",
+          canDelete: false,
+          deleteText: "No se puede cancelar",
+          message: "❌ Esta solicitud fue rechazada.",
+          icon: "❌",
+        };
+      case "cancelado":
+        return {
+          color: LOCAL_COLORS.gray,
+          text: "CANCELADO",
+          canDelete: false,
+          deleteText: "Ya cancelada",
+          message: "📝 Cancelada anteriormente.",
+          icon: "📝",
+        };
+      default:
+        return {
+          color: LOCAL_COLORS.gray,
+          text: "DESCONOCIDO",
+          canDelete: false,
+          deleteText: "No disponible",
+          message: "Estado desconocido.",
+          icon: "❓",
+        };
+    }
+  };
+
+  const estadoInfo = getEstadoInfo(diaEconomico.estado);
+
+  // En DiaEconomicoDetailModal.js - MODIFICA handleDeletePress:
+
+  const handleDeletePress = () => {
+    console.log("=== 🎯 DELETE PRESS START ===");
+    console.log("1. ID disponible?", diaEconomico?.id);
+    console.log("2. Estado actual:", diaEconomico?.estado);
+    console.log("3. onDelete type:", typeof onDelete);
+    console.log("4. isDeleting:", isDeleting);
+    console.log("5. canDelete según estado:", estadoInfo.canDelete);
+    console.log("=== 🎯 DELETE PRESS END ===");
+
+    if (!estadoInfo.canDelete) {
+      console.log("❌ No se puede borrar - Estado:", diaEconomico.estado);
+      Alert.alert("Acción no permitida", estadoInfo.message, [
+        { text: "Entendido" },
+      ]);
       return;
     }
 
+    if (typeof onDelete !== "function") {
+      console.error("❌ ERROR: onDelete no es una función");
+      Alert.alert("Error", "Función no disponible");
+      return;
+    }
+
+    // SOLUCIÓN PARA WEB - Usar window.confirm
+    const confirmMessage = `¿Cancelar solicitud del ${formatFecha(
+      diaEconomico.fecha
+    )}?\n\nMotivo: ${diaEconomico.motivo}`;
+
+    // Método 1: window.confirm (más compatible con web)
+    const userConfirmed = window.confirm(confirmMessage);
+
+    if (userConfirmed) {
+      console.log(
+        "✅ Usuario confirmó. Llamando onDelete con ID:",
+        diaEconomico.id
+      );
+      onDelete(diaEconomico.id);
+    } else {
+      console.log("❌ Usuario canceló la eliminación");
+    }
+    // Mostrar confirmación
     Alert.alert(
-      "Eliminar Solicitud",
-      "¿Estás seguro de que quieres eliminar esta solicitud de día económico?",
+      "¿Cancelar solicitud?",
+      `Vas a cancelar la solicitud para el ${formatFecha(
+        diaEconomico.fecha
+      )}\n\nMotivo: ${diaEconomico.motivo || "Sin motivo especificado"}`,
       [
-        { text: "Cancelar", style: "cancel" },
         {
-          text: "Eliminar",
+          text: "No, conservar",
+          style: "cancel",
+          onPress: () => {
+            console.log("❌ Usuario CANCELÓ la eliminación");
+          },
+        },
+        {
+          text: "Sí, cancelar",
           style: "destructive",
-          onPress: () => onDelete(diaEconomico.id, diaEconomico.estado),
+          onPress: () => {
+            console.log("✅✅✅ Usuario CONFIRMÓ la eliminación");
+            console.log("🚀 Llamando onDelete con ID:", diaEconomico.id);
+
+            // VERIFICA que diaEconomico.id existe
+            if (!diaEconomico.id) {
+              console.error("❌ ERROR: diaEconomico.id no existe!");
+              return;
+            }
+
+            // Llama a la función
+            onDelete(diaEconomico.id);
+            console.log("📞 onDelete llamado exitosamente");
+          },
         },
       ]
     );
   };
 
   return (
-    <Modal visible={visible} animationType="slide" transparent>
+    <Modal
+      animationType="slide"
+      transparent={true}
+      visible={visible}
+      onRequestClose={onClose}
+    >
       <View style={styles.modalOverlay}>
-        <View style={styles.modalContent}>
-          {/* Header */}
+        <View style={styles.modalContainer}>
           <View style={styles.modalHeader}>
             <Text style={styles.modalTitle}>Detalles del Día Económico</Text>
-            <TouchableOpacity onPress={onClose} disabled={isDeleting}>
-              <Ionicons name="close" size={24} color="#64748b" />
+            <TouchableOpacity onPress={onClose} style={styles.closeButton}>
+              <Text style={styles.closeButtonText}>✕</Text>
             </TouchableOpacity>
           </View>
 
-          <ScrollView style={styles.modalScrollContent}>
+          <ScrollView style={styles.content}>
             {/* Estado */}
-            <View style={styles.detailSection}>
-              <Text style={styles.detailLabel}>Estado</Text>
-              <View
-                style={[
-                  styles.estadoBadge,
-                  { backgroundColor: getEstadoColor(diaEconomico.estado) },
-                ]}
-              >
-                <Text style={styles.estadoText}>
-                  {getEstadoText(diaEconomico.estado)}
+            <View
+              style={[
+                styles.estadoContainer,
+                { backgroundColor: estadoInfo.color + "20" },
+              ]}
+            >
+              <View style={styles.estadoHeader}>
+                <Text style={[styles.estadoIcon, { color: estadoInfo.color }]}>
+                  {estadoInfo.icon}
                 </Text>
+                <View
+                  style={[
+                    styles.estadoBadge,
+                    { backgroundColor: estadoInfo.color },
+                  ]}
+                >
+                  <Text style={styles.estadoText}>{estadoInfo.text}</Text>
+                </View>
               </View>
-            </View>
+              <Text style={styles.estadoMessage}>{estadoInfo.message}</Text>
 
-            {/* Fecha */}
-            <View style={styles.detailSection}>
-              <Text style={styles.detailLabel}>Fecha solicitada</Text>
-              <Text style={styles.detailValue}>
-                {formatDate(diaEconomico.fecha)}
+              {/* Debug info */}
+              <Text style={styles.debugText}>
+                ID: {diaEconomico.id} | Estado: {diaEconomico.estado}
               </Text>
             </View>
 
-            {/* Motivo */}
-            <View style={styles.detailSection}>
-              <Text style={styles.detailLabel}>Motivo</Text>
-              <Text style={styles.detailValue}>{diaEconomico.motivo}</Text>
-            </View>
+            {/* Información */}
+            <View style={styles.infoSection}>
+              <Text style={styles.sectionTitle}>📋 Información</Text>
 
-            {/* Fecha de creación */}
-            {diaEconomico.created_at && (
-              <View style={styles.detailSection}>
-                <Text style={styles.detailLabel}>Fecha de solicitud</Text>
-                <Text style={styles.detailValue}>
-                  {formatDate(diaEconomico.created_at)}
+              <View style={styles.infoRow}>
+                <Text style={styles.infoLabel}>Fecha:</Text>
+                <Text style={styles.infoValue}>
+                  {formatFecha(diaEconomico.fecha)}
                 </Text>
               </View>
-            )}
 
-            {/* Botón de eliminar solo para solicitudes pendientes */}
-            {diaEconomico.estado?.toLowerCase() === "pendiente" && (
-              <View style={styles.detailSection}>
-                <TouchableOpacity
-                  style={[
-                    styles.deleteButton,
-                    isDeleting && styles.buttonDisabled,
-                  ]}
-                  onPress={handleDelete}
-                  disabled={isDeleting}
-                >
-                  {isDeleting ? (
-                    <ActivityIndicator size="small" color="white" />
-                  ) : (
-                    <>
-                      <Ionicons name="trash-outline" size={18} color="white" />
-                      <Text style={styles.deleteButtonText}>
-                        Eliminar Solicitud
-                      </Text>
-                    </>
-                  )}
-                </TouchableOpacity>
-              </View>
-            )}
-
-            {/* Información adicional */}
-            <View style={styles.infoCard}>
-              <Ionicons
-                name="information-circle-outline"
-                size={20}
-                color="#3b82f6"
-              />
-              <View style={styles.infoContent}>
-                <Text style={styles.infoTitle}>Información importante</Text>
-                <Text style={styles.infoText}>
-                  • Los días económicos se descuentan de tu límite anual
-                </Text>
-                <Text style={styles.infoText}>
-                  • El estado "Pendiente" significa que está en revisión
-                </Text>
-                <Text style={styles.infoText}>
-                  • Solo puedes eliminar solicitudes pendientes
+              <View style={styles.infoRow}>
+                <Text style={styles.infoLabel}>Motivo:</Text>
+                <Text style={styles.infoValue}>
+                  {diaEconomico.motivo || "Sin motivo"}
                 </Text>
               </View>
+
+              <View style={styles.infoRow}>
+                <Text style={styles.infoLabel}>Solicitado:</Text>
+                <Text style={styles.infoValue}>
+                  {formatDateTime(diaEconomico.creado_en)}
+                </Text>
+              </View>
+
+              {diaEconomico.aprobado_en && (
+                <View style={styles.infoRow}>
+                  <Text style={styles.infoLabel}>Aprobado:</Text>
+                  <Text style={styles.infoValue}>
+                    {formatDateTime(diaEconomico.aprobado_en)}
+                  </Text>
+                </View>
+              )}
+
+              {diaEconomico.rechazado_en && (
+                <View style={styles.infoRow}>
+                  <Text style={styles.infoLabel}>Rechazado:</Text>
+                  <Text style={styles.infoValue}>
+                    {formatDateTime(diaEconomico.rechazado_en)}
+                  </Text>
+                </View>
+              )}
+
+              {diaEconomico.motivo_rechazo && (
+                <View style={styles.infoRow}>
+                  <Text style={styles.infoLabel}>Motivo rechazo:</Text>
+                  <Text style={[styles.infoValue, styles.rechazoText]}>
+                    {diaEconomico.motivo_rechazo}
+                  </Text>
+                </View>
+              )}
             </View>
           </ScrollView>
+
+          {/* Botones */}
+          <View style={styles.buttonContainer}>
+            <TouchableOpacity
+              style={[styles.button, styles.closeBtn]}
+              onPress={onClose}
+            >
+              <Text style={styles.closeBtnText}>Cerrar</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={[
+                styles.button,
+                styles.deleteBtn,
+                (!estadoInfo.canDelete || isDeleting) && styles.disabledBtn,
+              ]}
+              onPress={handleDeletePress}
+              disabled={!estadoInfo.canDelete || isDeleting}
+            >
+              {isDeleting ? (
+                <ActivityIndicator color="#fff" size="small" />
+              ) : (
+                <Text style={styles.deleteBtnText}>
+                  {estadoInfo.deleteText}
+                </Text>
+              )}
+            </TouchableOpacity>
+          </View>
         </View>
       </View>
     </Modal>
   );
 };
+
+const styles = StyleSheet.create({
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: "rgba(0, 0, 0, 0.5)",
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  modalContainer: {
+    width: "90%",
+    maxHeight: "80%",
+    backgroundColor: LOCAL_COLORS.background,
+    borderRadius: 15,
+  },
+  modalHeader: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    padding: 20,
+    borderBottomWidth: 1,
+    borderBottomColor: "#eee",
+  },
+  modalTitle: {
+    fontSize: 20,
+    fontWeight: "bold",
+    color: LOCAL_COLORS.text,
+    flex: 1,
+  },
+  closeButton: {
+    padding: 5,
+  },
+  closeButtonText: {
+    fontSize: 20,
+    color: LOCAL_COLORS.gray,
+  },
+  content: {
+    padding: 20,
+  },
+  estadoContainer: {
+    padding: 15,
+    borderRadius: 10,
+    marginBottom: 20,
+  },
+  estadoHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginBottom: 10,
+    gap: 10,
+  },
+  estadoIcon: {
+    fontSize: 24,
+  },
+  estadoBadge: {
+    paddingHorizontal: 15,
+    paddingVertical: 6,
+    borderRadius: 20,
+  },
+  estadoText: {
+    color: "#fff",
+    fontSize: 14,
+    fontWeight: "bold",
+  },
+  estadoMessage: {
+    fontSize: 14,
+    color: LOCAL_COLORS.text,
+    lineHeight: 20,
+  },
+  debugText: {
+    fontSize: 10,
+    color: LOCAL_COLORS.gray,
+    marginTop: 5,
+    fontStyle: "italic",
+  },
+  infoSection: {
+    backgroundColor: "#f9f9f9",
+    padding: 15,
+    borderRadius: 10,
+  },
+  sectionTitle: {
+    fontSize: 16,
+    fontWeight: "bold",
+    color: LOCAL_COLORS.text,
+    marginBottom: 15,
+    borderBottomWidth: 1,
+    borderBottomColor: "#eee",
+    paddingBottom: 8,
+  },
+  infoRow: {
+    flexDirection: "row",
+    marginBottom: 12,
+  },
+  infoLabel: {
+    width: 100,
+    fontSize: 14,
+    fontWeight: "600",
+    color: LOCAL_COLORS.text,
+  },
+  infoValue: {
+    flex: 1,
+    fontSize: 14,
+    color: LOCAL_COLORS.textSecondary,
+    lineHeight: 20,
+  },
+  rechazoText: {
+    color: LOCAL_COLORS.danger,
+    fontStyle: "italic",
+  },
+  buttonContainer: {
+    flexDirection: "row",
+    padding: 20,
+    borderTopWidth: 1,
+    borderTopColor: "#eee",
+    gap: 10,
+  },
+  button: {
+    flex: 1,
+    paddingVertical: 12,
+    borderRadius: 8,
+    alignItems: "center",
+  },
+  closeBtn: {
+    backgroundColor: LOCAL_COLORS.gray + "20",
+    borderWidth: 1,
+    borderColor: LOCAL_COLORS.gray,
+  },
+  closeBtnText: {
+    color: LOCAL_COLORS.text,
+    fontWeight: "600",
+  },
+  deleteBtn: {
+    backgroundColor: LOCAL_COLORS.danger,
+  },
+  disabledBtn: {
+    backgroundColor: LOCAL_COLORS.gray,
+    opacity: 0.5,
+  },
+  deleteBtnText: {
+    color: "#fff",
+    fontWeight: "bold",
+    fontSize: 14,
+  },
+});
 
 export default DiaEconomicoDetailModal;

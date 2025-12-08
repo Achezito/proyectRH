@@ -33,7 +33,7 @@ import ModalAprobar from "../../components/ModalAprobar";
 import ModalDetallesIncidencia from "../../components/ModalDetallesIncidencias";
 import FiltrosAvanzados from "../../components/FiltrosAvanzados";
 
-const API_BASE_URL = "http://10.194.1.108:5000/admin";
+import { API_BASE_URL } from "../../config/api";
 
 export default function IncidenciasScreen() {
   const [incidencias, setIncidencias] = useState([]);
@@ -61,7 +61,7 @@ export default function IncidenciasScreen() {
     try {
       setLoading(true);
 
-      let url = `${API_BASE_URL}/incidencias`;
+      let url = `${API_BASE_URL}/admin/incidencias`;
       const params = new URLSearchParams();
 
       if (filtros.estado !== "todos") params.append("estado", filtros.estado);
@@ -93,7 +93,7 @@ export default function IncidenciasScreen() {
   const aprobarIncidencia = async (id, observaciones = "") => {
     try {
       const response = await fetch(
-        `${API_BASE_URL}/incidencias/${id}/aprobar`,
+        `${API_BASE_URL}/admin/incidencias/${id}/aprobar`,
         {
           method: "PUT",
           headers: { "Content-Type": "application/json" },
@@ -119,7 +119,7 @@ export default function IncidenciasScreen() {
   const rechazarIncidencia = async (id, motivo = "") => {
     try {
       const response = await fetch(
-        `${API_BASE_URL}/incidencias/${id}/rechazar`,
+        `${API_BASE_URL}/admin/incidencias/${id}/rechazar`,
         {
           method: "PUT",
           headers: { "Content-Type": "application/json" },
@@ -144,7 +144,9 @@ export default function IncidenciasScreen() {
   // Exportar a CSV
   const exportarCSV = async () => {
     try {
-      const response = await fetch(`${API_BASE_URL}/incidencias/exportar`);
+      const response = await fetch(
+        `${API_BASE_URL}/admin/incidencias/exportar`
+      );
       // Aquí implementarías la descarga del archivo
       Alert.alert("Éxito", "CSV generado correctamente");
     } catch (error) {

@@ -26,7 +26,7 @@ import {
 import { SafeAreaView } from "react-native-safe-area-context";
 
 // URL base de tu API Flask
-const API_BASE_URL = "http://10.194.1.108:5000";
+import { API_BASE_URL } from "../../config/api";
 
 export default function DashboardPage() {
   const [activeFilter, setActiveFilter] = useState("hoy");

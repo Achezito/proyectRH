@@ -1,4 +1,4 @@
-// src/screens/administrador/PeriodosScreen.js
+// EN LAS IMPORTACIONES, AGREGA:
 import React, { useState, useEffect } from "react";
 import {
   View,
@@ -25,6 +25,9 @@ import {
 import { useAuth } from "../../context/AuthContext";
 import DatePickerModal from "../../components/datepickermodal"; // Importar el componente
 
+// AGREGAR ESTA IMPORTACIÓN:
+import { API_BASE_URL } from "../../config/api";
+
 export default function PeriodosScreen() {
   const { user } = useAuth();
   const [periodos, setPeriodos] = useState([]);
@@ -44,11 +47,17 @@ export default function PeriodosScreen() {
   // Estado para el DatePickerModal
   const [showDatePicker, setShowDatePicker] = useState(null); // 'inicio' | 'fin' | null
 
-  // Cargar períodos
+  // Cargar períodos - MODIFICADO
   const fetchPeriodos = async () => {
     try {
       setLoading(true);
-      const response = await fetch("http://10.194.1.108:5000/periodos/");
+
+      // ANTES:
+      // const response = await fetch("http://172.18.4.188:5000/periodos/");
+
+      // DESPUÉS:
+      const response = await fetch(`${API_BASE_URL}/periodos/`);
+
       const data = await response.json();
 
       if (data.success) {
@@ -150,10 +159,11 @@ export default function PeriodosScreen() {
     };
 
     try {
+      // MODIFICADO: Usar API_BASE_URL
       const url =
         modalMode === "create"
-          ? "http://10.194.1.108:5000/periodos/"
-          : `http://10.194.1.108:5000/periodos/${selectedPeriodo.id}`;
+          ? `${API_BASE_URL}/periodos/`
+          : `${API_BASE_URL}/periodos/${selectedPeriodo.id}`;
 
       const method = modalMode === "create" ? "POST" : "PUT";
 
@@ -208,7 +218,7 @@ export default function PeriodosScreen() {
     }
   };
 
-  // Activar período
+  // Activar período - MODIFICADO
   const handleActivar = async (periodoId) => {
     Alert.alert(
       "Activar Período",
@@ -220,8 +230,12 @@ export default function PeriodosScreen() {
           style: "destructive",
           onPress: async () => {
             try {
+              // ANTES:
+              // const response = await fetch(`http://172.18.4.188:5000/periodos/${periodoId}/activar`, {...});
+
+              // DESPUÉS:
               const response = await fetch(
-                `http://10.194.1.108:5000/periodos/${periodoId}/activar`,
+                `${API_BASE_URL}/periodos/${periodoId}/activar`,
                 {
                   method: "PUT",
                 }
@@ -250,7 +264,7 @@ export default function PeriodosScreen() {
     );
   };
 
-  // Eliminar período
+  // Eliminar período - MODIFICADO
   const handleDelete = async (periodoId) => {
     Alert.alert(
       "Eliminar Período",
@@ -262,8 +276,12 @@ export default function PeriodosScreen() {
           style: "destructive",
           onPress: async () => {
             try {
+              // ANTES:
+              // const response = await fetch(`http://172.18.4.188:5000/periodos/${periodoId}`, {...});
+
+              // DESPUÉS:
               const response = await fetch(
-                `http://10.194.1.108:5000/periodos/${periodoId}`,
+                `${API_BASE_URL}/periodos/${periodoId}`,
                 {
                   method: "DELETE",
                 }

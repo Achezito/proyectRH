@@ -1,6 +1,6 @@
 # backend/periodos_bp.py
 from flask import Blueprint, jsonify, request
-from datetime import datetime
+from datetime import datetime,date, timedelta  # ← Esto es CRUCIAL
 from ..extensions import supabase
 from functools import wraps
 
@@ -15,7 +15,104 @@ def admin_required(f):
     return decorated_function
 
 # ==================== RUTAS DE PERÍODOS ====================
+# Suponiendo que la tabla DIAS_ECONOMICOS tiene estos campos:
+"""
+id (integer)
+docente_id (integer)
+periodo_id (integer)
+fecha (date)
+motivo (text)
+estado (varchar) - 'pendiente', 'aprobado', 'rechazado', 'cancelado'
+creado_en (timestamp)
+aprobado_en (timestamp)
+rechazado_en (timestamp)
+cancelado_en (timestamp)
+"""
 
+# Función corregida:
+def verificar_y_desactivar_periodos_vencidos_completa():
+    """Función completa para gestionar períodos vencidos"""
+    try:
+        print("🔄 Iniciando verificación completa de períodos...")
+        
+        hoy = date.today()
+        cambios = {
+            'periodos_desactivados': [],
+            'dias_reiniciados': 0,
+            'solicitudes_actualizadas': 0
+        }
+        
+        # 1. Buscar períodos activos vencidos
+        result = supabase.table('PERIODO')\
+            .select('*')\
+            .eq('activo', True)\
+            .lte('fecha_fin', hoy.isoformat())\
+            .execute()
+        
+        periodos_vencidos = result.data if result.data else []
+        
+        for periodo in periodos_vencidos:
+            periodo_id = periodo['id']
+            periodo_nombre = periodo['nombre']
+            
+            print(f"📅 Procesando período vencido: {periodo_nombre} (ID: {periodo_id})")
+            
+            # A. Desactivar período
+            supabase.table('PERIODO')\
+                .update({'activo': False})\
+                .eq('id', periodo_id)\
+                .execute()
+            
+            cambios['periodos_desactivados'].append({
+                'id': periodo_id,
+                'nombre': periodo_nombre,
+                'fecha_fin': periodo['fecha_fin']
+            })
+            
+            # B. Reiniciar contador de días económicos (solo eliminar registros de control)
+            try:
+                # Eliminar registros de CONTROL_DIAS_ECONOMICOS para este período
+                delete_result = supabase.table('CONTROL_DIAS_ECONOMICOS')\
+                    .delete()\
+                    .eq('periodo_id', periodo_id)\
+                    .execute()
+                
+                cambios['dias_reiniciados'] += 1
+                print(f"✅ Contador de días reiniciado para período {periodo_id}")
+            except Exception as e:
+                print(f"⚠️ Error reiniciando días: {e}")
+            
+            # C. Actualizar solicitudes PENDIENTES a RECHAZADAS
+            try:
+                # Si la tabla DIAS_ECONOMICOS tiene campo 'rechazado_en'
+                update_data = {
+                    'estado': 'rechazado',
+                    'rechazado_en': datetime.now().isoformat()
+                }
+                
+                update_result = supabase.table('DIAS_ECONOMICOS')\
+                    .update(update_data)\
+                    .eq('periodo_id', periodo_id)\
+                    .eq('estado', 'pendiente')\
+                    .execute()
+                
+                if update_result.data:
+                    cambios['solicitudes_actualizadas'] += len(update_result.data)
+                    print(f"📝 {len(update_result.data)} solicitud(es) pendiente(s) marcada(s) como rechazada(s)")
+            except Exception as e:
+                print(f"⚠️ Error actualizando solicitudes: {e}")
+            
+            print(f"✅ Período {periodo_nombre} procesado exitosamente")
+        
+        print(f"📊 Resumen: {len(cambios['periodos_desactivados'])} período(s) procesado(s)")
+        
+        return cambios
+        
+    except Exception as e:
+        print(f"❌ Error en verificación completa: {e}")
+        import traceback
+        traceback.print_exc()
+        return {'error': str(e)}
 @periodos_bp.route('/', methods=['GET'])
 @admin_required
 def obtener_periodos():
