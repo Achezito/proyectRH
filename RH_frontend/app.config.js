@@ -1,29 +1,45 @@
 // app.config.js
-export default ({ config }) => {
-  const environment = process.env.APP_ENV || "development";
+module.exports = {
+  expo: {
+    name: "RH_frontend",
+    slug: "RH_frontend",
+    version: "1.0.0",
+    orientation: "portrait",
+    icon: "./assets/icon.png",
+    userInterfaceStyle: "light",
+    newArchEnabled: true,
+    splash: {
+      image: "./assets/splash-icon.png",
+      resizeMode: "contain",
+      backgroundColor: "#ffffff",
+    },
+    ios: {
+      supportsTablet: true,
+    },
+    android: {
+      adaptiveIcon: {
+        foregroundImage: "./assets/adaptive-icon.png",
+        backgroundColor: "#ffffff",
+      },
+      edgeToEdgeEnabled: true,
+    },
+    web: {
+      favicon: "./assets/favicon.png",
+      bundler: "webpack",
+    },
+    plugins: ["expo-router"],
 
-  const envConfigs = {
-    development: {
+    // AQUÍ ESTÁ LO IMPORTANTE - CONFIGURACIÓN PARA PRODUCCIÓN
+    extra: {
+      environment: "production", // Cambiar a "production"
+
+      // Backend Flask API - PRODUCCIÓN
+      apiBaseUrl: "https://rh-backend-4hb7.onrender.com",
+
+      // Supabase - usar las mismas credenciales que el backend
       supabaseUrl: "https://rtwcoftbxtqnpheakuuu.supabase.co",
       supabaseAnonKey:
-        "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJ0d2NvZnRieHRxbnBoZWFrdXV1Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTI1NDU5MjMsImV4cCI6MjA2ODEyMTkyM30.ZmZ69YPEoNVA2r6x8zbkdYvUgO-PnaOrjmrNgEKGbWM", // Obtener de Dashboard → API
-      apiBaseUrl: "http://10.194.1.108:5000",
-      environment: "development",
+        "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJ0d2NvZnRieHRxbnBoZWFrdXV1Iiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc1MjU0NTkyMywiZXhwIjoyMDY4MTIxOTIzfQ.4qNCzAjJ99W6tFz-YlLAWp7ZD9yAgPBFrpDix3D-C34", // REEMPLAZAR con tu key real
     },
-    production: {
-      // IMPORTANTE: Crear proyecto nuevo para producción
-      supabaseUrl: "https://[TU-PROYECTO-PROD].supabase.co",
-      supabaseAnonKey: "TU_ANON_KEY_PROD", // Key DIFERENTE
-      apiBaseUrl: "https://tu-dominio-real.com",
-      environment: "production",
-    },
-  };
-
-  return {
-    ...config,
-    extra: {
-      ...config.extra,
-      ...envConfigs[environment],
-    },
-  };
+  },
 };

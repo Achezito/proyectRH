@@ -19,13 +19,18 @@ def create_app():
     app.config.from_object(Config)
     
     # Configurar CORS
+    # backend/app.py - actualiza la sección CORS
     if os.environ.get('FLASK_ENV') == 'production':
         CORS(app, origins=[
-            "https://rh-backend-4hb7.onrender.com",
-            "https://*.onrender.com",
-            "http://localhost:3000",
-            "http://localhost:5000"
-        ])
+        "https://rh-backend-4hb7.onrender.com",
+        "https://*.onrender.com",
+        "https://*.vercel.app",           # ← AÑADIDO
+        "https://tufrontend.vercel.app",  # ← AÑADIDO (tu dominio específico)
+        "http://localhost:3000",
+        "http://localhost:5000",
+        "http://localhost:19006",         # ← Para Expo web local
+        "https://localhost:19006"         # ← Para Expo web local con HTTPS
+    ], supports_credentials=True)        # ← IMPORTANTE si usas cookies/auth
     else:
         CORS(app, resources={r"/*": {"origins": "*"}})
     
