@@ -1,6 +1,6 @@
 import React, { createContext, useContext, useState, useEffect } from "react";
 import { useRouter } from "expo-router";
-import supabase from "../../supabaseClient.js";
+import { supabase } from "../../supabaseClient.js";
 // Crear el contexto
 export const AuthContext = createContext();
 
