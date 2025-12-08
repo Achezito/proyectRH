@@ -1,7 +1,18 @@
 [build]
-  publish = "RH_frontend/web-build"  # Expo genera en web-build, no en build
-  command = "cd RH_frontend && npm install && npm run build"
+  base = "RH_frontend"  # Netlify ejecutará todo desde esta carpeta
+  publish = "dist"      # ¡Esta es la carpeta que Expo realmente crea!
+  command = "npm run build"
 
 [build.environment]
-  NODE_VERSION = "18"  # Usa Node 18 (compatible con Expo)
-  # NO configures Python aquí ya que no es necesario
+  NODE_VERSION = "18"
+  EXPO_NO_TELEMETRY = "1"
+
+[[redirects]]
+  from = "/*"
+  to = "/index.html"
+  status = 200
+
+[[headers]]
+  for = "/*"
+  [headers.values]
+    Access-Control-Allow-Origin = "*"
