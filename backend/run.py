@@ -1,27 +1,30 @@
-from flask import Flask, request, jsonify  # ¡Agregar request y jsonify!
+﻿from flask import Flask, jsonify
 from flask_cors import CORS
 from app import create_app
+import os
 
 app = create_app()
 
-# Configurar CORS de manera más específica
+# Configurar CORS para producción (incluye Netlify)
 CORS(app, 
-     origins=["http://localhost:8081", "http://localhost:3000"],
-     methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
-     allow_headers=["Content-Type", "Authorization", "Accept"],
-     supports_credentials=True)
+     resources={
+         r"/*": {
+             "origins": [
+                 "http://localhost:8081",
+                 "http://localhost:3000",
+                 "https://*.netlify.app",  # ← AÑADIDO para Netlify
+                 "https://tu-app.netlify.app"  # ← tu dominio real
+             ],
+             "methods": ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+             "allow_headers": ["Content-Type", "Authorization", "Accept"],
+             "supports_credentials": True
+         }
+     })
 
-# Manejar preflight requests globalmente - CORREGIDO
-@app.before_request
-def handle_preflight():
-    if request.method == "OPTIONS":
-        response = jsonify({"status": "ok"})
-        response.headers.add("Access-Control-Allow-Origin", "http://localhost:8081")
-        response.headers.add("Access-Control-Allow-Headers", "Content-Type,Authorization")
-        response.headers.add("Access-Control-Allow-Methods", "GET,POST,PUT,DELETE,OPTIONS")
-        return response
 @app.route('/')
 def health_check():
     return jsonify({"status": "ok", "message": "Backend RH funcionando"})
+
 if __name__ == "__main__":
-    app.run(host="0.0.0.0", port=5000, debug=True)
+    port = int(os.environ.get("PORT", 5000))
+    app.run(host="0.0.0.0", port=port, debug=False)  # debug=False en producción
