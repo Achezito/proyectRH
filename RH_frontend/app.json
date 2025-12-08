@@ -8,18 +8,16 @@
     "userInterfaceStyle": "light",
     "newArchEnabled": true,
 
-    "experiments": {
-      "baseUrl": "/proyectRH/"
-    },
-
     "splash": {
       "image": "./assets/splash-icon.png",
       "resizeMode": "contain",
       "backgroundColor": "#ffffff"
     },
+
     "ios": {
       "supportsTablet": true
     },
+
     "android": {
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon.png",
@@ -27,12 +25,16 @@
       },
       "edgeToEdgeEnabled": true
     },
+
     "web": {
       "favicon": "./assets/favicon.png",
       "output": "static",
-      "bundler": "metro"
+      "bundler": "metro",
+      "baseUrl": "/proyectRH"
     },
+
     "plugins": ["expo-router"],
+
     "extra": {
       "environment": "development",
       "supabaseUrl": "https://rtwcoftbxtqnpheakuuu.supabase.co",
