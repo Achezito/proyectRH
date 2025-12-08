@@ -10,8 +10,6 @@ jobs:
 
     steps:
       - uses: actions/checkout@v3
-        with:
-          path: rh-frontend # ← AÑADE ESTA LÍNEA
 
       - name: Setup Node.js
         uses: actions/setup-node@v3
@@ -20,14 +18,12 @@ jobs:
 
       - name: Install dependencies
         run: npm install --legacy-peer-deps
-        working-directory: ./rh-frontend # ← AÑADE ESTA LÍNEA
 
       - name: Build
         run: npm run build
-        working-directory: ./rh-frontend # ← AÑADE ESTA LÍNEA
 
       - name: Deploy to GitHub Pages
         uses: JamesIves/github-pages-deploy-action@v4
         with:
-          folder: rh-frontend/dist # ← AÑADE "rh-frontend/"
+          folder: dist
           branch: gh-pages
