@@ -1,29 +1,92 @@
 # backend/app.py
 from flask import Flask, jsonify
+from flask_cors import CORS
+from dotenv import load_dotenv
+import os
+import sys
+
+# Asegurar que Python encuentre los módulos
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+
+# Cargar variables de entorno
+load_dotenv()
 
 def create_app():
     app = Flask(__name__)
     
-    # AGREGAR AQUÍ LA NUEVA RUTA RAÍZ
+    # Configuración desde config.py
+    from config.config import Config
+    app.config.from_object(Config)
+    
+    # Configurar CORS
+    if os.environ.get('FLASK_ENV') == 'production':
+        CORS(app, origins=[
+            "https://rh-backend-4hb7.onrender.com",
+            "https://*.onrender.com",
+            "http://localhost:3000",
+            "http://localhost:5000"
+        ])
+    else:
+        CORS(app, resources={r"/*": {"origins": "*"}})
+    
+    # Ruta raíz
     @app.route('/')
     def home():
         return jsonify({
             'service': 'RH Backend API',
             'status': 'operational',
-            'endpoints': {
-                'health': '/auth/health',
-                'docs': '// Agregar cuando tengas documentación'
-            },
             'version': '1.0.0'
         })
     
-    # La ruta que ya tenías
-    @app.route('/auth/health', methods=['GET'])
+    # Health check
+    @app.route('/auth/health')
     def health():
         return jsonify({'status': 'ok'})
     
-    return app  # ← Esto debe estar al final
+    # Importar extensions para que esté disponible
+    from extensions import supabase
+    
+    # Verificar Supabase
+    try:
+        result = supabase.table('users').select('count', count='exact').limit(1).execute()
+        print("✅ Supabase conectado correctamente")
+    except Exception as e:
+        print(f"⚠️  Supabase: {e}")
+    
+    # Registrar blueprints - IMPORTACIÓN DIRECTA
+    blueprints = [
+        ('auth', 'auth_bp', '/auth'),
+        ('admin', 'admin_bp', '/admin'),
+        ('cumpleaños', 'cumpleaños_bp', '/cumpleaños'),
+        ('docente', 'teacher_bp', '/docente'),
+        ('formulario', 'bp', '/formulario'),
+        ('dias_economicos', 'dias_economicos_bp', '/dias_economicos'),
+        ('adminDocente', 'adminDocente_bp', '/adminDocente'),
+        ('periodos_bp', 'periodos_bp', None),
+        ('diasEconomicos_bp', 'diasEconomicos_bp', None)
+    ]
+    
+    for module_name, bp_name, prefix in blueprints:
+        try:
+            # Importar dinámicamente
+            module = __import__(f'routes.{module_name}', fromlist=[''])
+            blueprint = getattr(module, bp_name)
+            
+            if prefix:
+                app.register_blueprint(blueprint, url_prefix=prefix)
+            else:
+                app.register_blueprint(blueprint)
+                
+            print(f"✅ {module_name} registrado")
+        except Exception as e:
+            print(f"❌ Error en {module_name}: {e}")
+    
+    # Mostrar rutas
+    print(f"\n📋 Total rutas: {len([r for r in app.url_map.iter_rules() if 'static' not in r.rule])}")
+    
+    return app
 
 if __name__ == '__main__':
     app = create_app()
-    app.run(debug=True)
+    port = int(os.environ.get('PORT', 5000))
+    app.run(host='0.0.0.0', port=port, debug=True)

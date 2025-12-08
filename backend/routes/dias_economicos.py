@@ -1,6 +1,6 @@
 from flask import Blueprint, request, jsonify
 from datetime import datetime
-from app.extensions import supabase
+from extensions import supabase
 from functools import wraps
 
 dias_economicos_bp = Blueprint("dias_economicos", __name__)

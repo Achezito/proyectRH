@@ -1,7 +1,7 @@
 # backend/periodos_bp.py
 from flask import Blueprint, jsonify, request
 from datetime import datetime,date, timedelta  # ← Esto es CRUCIAL
-from ..extensions import supabase
+from extensions import supabase
 from functools import wraps
 
 periodos_bp = Blueprint("periodos", __name__, url_prefix="/periodos")

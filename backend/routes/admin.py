@@ -1,6 +1,6 @@
 from flask import Blueprint, jsonify, request, send_file
 from datetime import datetime, timedelta
-from ..extensions import supabase
+from extensions import supabase
 import csv
 import io
 import unicodedata

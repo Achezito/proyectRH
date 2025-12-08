@@ -3,7 +3,7 @@ import os
 import traceback
 import requests
 from datetime import datetime
-from app.extensions import supabase
+from extensions import supabase
 from functools import wraps
 import uuid
 from flask import send_from_directory

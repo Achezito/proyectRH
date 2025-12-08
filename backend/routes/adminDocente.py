@@ -7,7 +7,7 @@ import json
 from functools import wraps
 import sys
 import os
-from ..extensions import supabase
+from extensions import supabase
 
 # Importar directamente el cliente de Supabase
 

@@ -1,5 +1,5 @@
 from flask import Blueprint, request, jsonify
-from ..extensions import supabase
+from extensions import supabase
 import jwt
 from datetime import datetime, timedelta  # <-- AÑADIR timedelta
 import os

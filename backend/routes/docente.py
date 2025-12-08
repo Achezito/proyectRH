@@ -2,7 +2,7 @@ from flask import Blueprint, request, jsonify
 import os
 import traceback
 import requests
-from app.extensions import supabase
+from extensions import supabase
 
 teacher_bp = Blueprint('teacher', __name__)
 

@@ -1,7 +1,7 @@
 # backend/diasEconomicos_bp.py
 from flask import Blueprint, jsonify, request, current_app
 from datetime import datetime, date, timedelta
-from ..extensions import supabase
+from extensions import supabase
 from functools import wraps
 import traceback
 
