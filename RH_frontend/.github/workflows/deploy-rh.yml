@@ -1,4 +1,4 @@
-﻿name: "DEPLOY RH FRONTEND" # NOMBRE DIFERENTE
+﻿name: "DEPLOY RH FRONTEND"
 
 on:
   push:
@@ -27,36 +27,63 @@ jobs:
         with:
           node-version: "18"
 
-      - name: Find and install
+      - name: Find project directory
         id: setup
         run: |
-          # Busca package.json
-          if [ -f "package.json" ]; then
-            echo "✅ package.json en raíz"
-            echo "DIR=." >> $GITHUB_OUTPUT
-          elif [ -f "rh_frontend/package.json" ]; then
-            echo "✅ package.json en rh_frontend/"
-            echo "DIR=rh_frontend" >> $GITHUB_OUTPUT
+          echo "=== Detectando ubicación de package.json ==="
 
-          else
-            echo "❌ ERROR: No package.json encontrado"
-            echo "Listando todo:"
-            find . -type f | head -30
-            exit 1
+          # 1. raíz
+          if [ -f "package.json" ]; then
+            echo "DIR=." >> $GITHUB_OUTPUT
+            echo "Encontrado en raíz"
+            exit 0
           fi
+
+          # 2. rh_frontend
+          if [ -f "rh_frontend/package.json" ]; then
+            echo "DIR=rh_frontend" >> $GITHUB_OUTPUT
+            echo "Encontrado en rh_frontend/"
+            exit 0
+          fi
+
+          # 3. rh-frontend (con guion)
+          if [ -f "rh-frontend/package.json" ]; then
+            echo "DIR=rh-frontend" >> $GITHUB_OUTPUT
+            echo "Encontrado en rh-frontend/"
+            exit 0
+          fi
+
+          # 4. RH_frontend (mayúsculas)
+          if [ -f "RH_frontend/package.json" ]; then
+            echo "DIR=RH_frontend" >> $GITHUB_OUTPUT
+            echo "Encontrado en RH_frontend/"
+            exit 0
+          fi
+
+          echo "❌ ERROR: No se encontró package.json en ninguna ruta conocida"
+          find . -maxdepth 4 -type f -name "package.json"
+          exit 1
+
+      - name: Debug output chosen directory
+        run: |
+          echo "=== Carpeta detectada ==="
+          echo "DIR: '${{ steps.setup.outputs.DIR }}'"
+          ls -la
+          echo "=== Revisando carpetas ==="
+          ls -la rh_frontend 2>/dev/null || echo "No existe rh_frontend/"
+          ls -la rh-frontend 2>/dev/null || echo "No existe rh-frontend/"
+          ls -la RH_frontend 2>/dev/null || echo "No existe RH_frontend/"
 
       - name: Install dependencies
         run: |
-          if [ "${{ steps.setup.outputs.DIR }}" != "." ]; then
-            cd "${{ steps.setup.outputs.DIR }}"
-          fi
+          cd "${{ steps.setup.outputs.DIR }}"
+          echo "=== Instalando dependencias en $(pwd) ==="
           npm install --legacy-peer-deps
 
       - name: Build
         run: |
-          if [ "${{ steps.setup.outputs.DIR }}" != "." ]; then
-            cd "${{ steps.setup.outputs.DIR }}"
-          fi
+          cd "${{ steps.setup.outputs.DIR }}"
+          echo "=== Ejecutando build en $(pwd) ==="
           npm run build
 
       - name: Deploy to GitHub Pages
