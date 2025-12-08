@@ -1,11 +1,11 @@
-services:
+﻿services:
   - type: web
     name: rh-backend-flask
     env: python
     region: oregon
     plan: free
     buildCommand: pip install -r requirements.txt
-    startCommand: gunicorn run:app # ← CAMBIADO de app:app a run:app
+    startCommand: python -m gunicorn run:app  # ← CAMBIADO
     envVars:
       - key: PYTHON_VERSION
         value: 3.11.0
