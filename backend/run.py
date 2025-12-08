@@ -20,6 +20,8 @@ def handle_preflight():
         response.headers.add("Access-Control-Allow-Headers", "Content-Type,Authorization")
         response.headers.add("Access-Control-Allow-Methods", "GET,POST,PUT,DELETE,OPTIONS")
         return response
-
+@app.route('/')
+def health_check():
+    return jsonify({"status": "ok", "message": "Backend RH funcionando"})
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=5000, debug=True)
