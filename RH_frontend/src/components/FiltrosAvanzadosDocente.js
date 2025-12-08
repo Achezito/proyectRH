@@ -8,7 +8,7 @@ import {
   Modal,
   Platform,
 } from "react-native";
-import Icon from "react-native-vector-icons/MaterialIcons";
+import { MaterialIcons } from "@expo/vector-icons"; // ← CORREGIDO
 import { Picker } from "@react-native-picker/picker";
 
 const FiltrosAvanzados = ({
@@ -42,7 +42,8 @@ const FiltrosAvanzados = ({
           <View style={styles.modalHeader}>
             <Text style={styles.modalTitle}>Filtros Avanzados</Text>
             <TouchableOpacity onPress={onCancelar} style={styles.closeButton}>
-              <Icon name="close" size={24} color="#5d6d7e" />
+              <MaterialIcons name="close" size={24} color="#5d6d7e" />{" "}
+              {/* ← CORREGIDO */}
             </TouchableOpacity>
           </View>
 
@@ -152,7 +153,8 @@ const FiltrosAvanzados = ({
               style={[styles.footerButton, styles.limpiarButton]}
               onPress={handleLimpiar}
             >
-              <Icon name="filter-alt-off" size={20} color="#e74c3c" />
+              <MaterialIcons name="filter-alt-off" size={20} color="#e74c3c" />{" "}
+              {/* ← CORREGIDO */}
               <Text style={styles.limpiarButtonText}>Limpiar</Text>
             </TouchableOpacity>
 
@@ -160,7 +162,8 @@ const FiltrosAvanzados = ({
               style={[styles.footerButton, styles.cancelButton]}
               onPress={onCancelar}
             >
-              <Icon name="cancel" size={20} color="#7f8c8d" />
+              <MaterialIcons name="cancel" size={20} color="#7f8c8d" />{" "}
+              {/* ← CORREGIDO */}
               <Text style={styles.cancelButtonText}>Cancelar</Text>
             </TouchableOpacity>
 
@@ -168,7 +171,8 @@ const FiltrosAvanzados = ({
               style={[styles.footerButton, styles.aplicarButton]}
               onPress={handleAplicar}
             >
-              <Icon name="check" size={20} color="#fff" />
+              <MaterialIcons name="check" size={20} color="#fff" />{" "}
+              {/* ← CORREGIDO */}
               <Text style={styles.aplicarButtonText}>Aplicar</Text>
             </TouchableOpacity>
           </View>

@@ -1,6 +1,13 @@
 import React from "react";
-import { View, Text, StyleSheet, TouchableOpacity, Alert } from "react-native";
-import Icon from "react-native-vector-icons/MaterialIcons";
+import {
+  View,
+  Text,
+  StyleSheet,
+  TouchableOpacity,
+  Alert,
+  Platform,
+} from "react-native";
+import { MaterialIcons } from "@expo/vector-icons"; // ← CORREGIDO
 
 const DocenteCard = ({ docente, onPress, onEdit, onDelete, onDesactivar }) => {
   if (!docente) return null;
@@ -59,6 +66,7 @@ const DocenteCard = ({ docente, onPress, onEdit, onDelete, onDesactivar }) => {
     console.log("⚠️ No se encontró tipo de contrato");
     return "No especificado";
   };
+
   const handleDesactivarPress = () => {
     const esActivo = docente.estado?.toLowerCase() === "activo";
     Alert.alert(
@@ -75,6 +83,11 @@ const DocenteCard = ({ docente, onPress, onEdit, onDelete, onDesactivar }) => {
         },
       ]
     );
+  };
+
+  // Helper para íconos (por si hay problemas en web)
+  const renderIcon = (name, size, color) => {
+    return <MaterialIcons name={name} size={size} color={color} />;
   };
 
   return (
@@ -106,7 +119,7 @@ const DocenteCard = ({ docente, onPress, onEdit, onDelete, onDesactivar }) => {
               </View>
               {docente.docencia && (
                 <View style={styles.docenciaTag}>
-                  <Icon name="school" size={12} color="#3498db" />
+                  {renderIcon("school", 12, "#3498db")}
                   <Text style={styles.docenciaText}>{docente.docencia}</Text>
                 </View>
               )}
@@ -117,18 +130,18 @@ const DocenteCard = ({ docente, onPress, onEdit, onDelete, onDesactivar }) => {
         {/* Información detallada */}
         <View style={styles.detailsContainer}>
           <View style={styles.detailRow}>
-            <Icon name="work" size={16} color="#7f8c8d" />
+            {renderIcon("work", 16, "#7f8c8d")}
             <Text style={styles.detailText}>{getTipoContrato()}</Text>
           </View>
           {docente.tipo_colaborador && (
             <View style={styles.detailRow}>
-              <Icon name="people" size={16} color="#7f8c8d" />
+              {renderIcon("people", 16, "#7f8c8d")}
               <Text style={styles.detailText}>{docente.tipo_colaborador}</Text>
             </View>
           )}
           {docente.cumpleaños && (
             <View style={styles.detailRow}>
-              <Icon name="cake" size={16} color="#7f8c8d" />
+              {renderIcon("cake", 16, "#7f8c8d")}
               <Text style={styles.detailText}>
                 {new Date(docente.cumpleaños).toLocaleDateString()}
               </Text>
@@ -142,7 +155,7 @@ const DocenteCard = ({ docente, onPress, onEdit, onDelete, onDesactivar }) => {
             style={[styles.actionButton, styles.editButton]}
             onPress={() => onEdit && onEdit(docente)}
           >
-            <Icon name="edit" size={18} color="#3498db" />
+            {renderIcon("edit", 18, "#3498db")}
             <Text style={styles.actionButtonText}>Editar</Text>
           </TouchableOpacity>
 
@@ -150,19 +163,13 @@ const DocenteCard = ({ docente, onPress, onEdit, onDelete, onDesactivar }) => {
             style={[styles.actionButton, styles.desactivarButton]}
             onPress={handleDesactivarPress}
           >
-            <Icon
-              name={
-                docente.estado?.toLowerCase() === "activo"
-                  ? "block"
-                  : "check-circle"
-              }
-              size={18}
-              color={
-                docente.estado?.toLowerCase() === "activo"
-                  ? "#e74c3c"
-                  : "#2ecc71"
-              }
-            />
+            {renderIcon(
+              docente.estado?.toLowerCase() === "activo"
+                ? "block"
+                : "check-circle",
+              18,
+              docente.estado?.toLowerCase() === "activo" ? "#e74c3c" : "#2ecc71"
+            )}
             <Text
               style={[
                 styles.actionButtonText,
@@ -184,7 +191,7 @@ const DocenteCard = ({ docente, onPress, onEdit, onDelete, onDesactivar }) => {
             style={[styles.actionButton, styles.deleteButton]}
             onPress={() => onDelete && onDelete(docente.id)}
           >
-            <Icon name="delete" size={18} color="#e74c3c" />
+            {renderIcon("delete", 18, "#e74c3c")}
             <Text style={[styles.actionButtonText, { color: "#e74c3c" }]}>
               Eliminar
             </Text>
@@ -194,7 +201,6 @@ const DocenteCard = ({ docente, onPress, onEdit, onDelete, onDesactivar }) => {
     </TouchableOpacity>
   );
 };
-
 const styles = StyleSheet.create({
   card: {
     backgroundColor: "#fff",

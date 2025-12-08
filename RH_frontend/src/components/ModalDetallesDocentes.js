@@ -9,7 +9,7 @@ import {
   Alert,
   Linking,
 } from "react-native";
-import Icon from "react-native-vector-icons/MaterialIcons";
+import { MaterialIcons } from "@expo/vector-icons";
 
 const ModalDetallesDocente = ({
   visible,
@@ -102,12 +102,12 @@ const ModalDetallesDocente = ({
                   { backgroundColor: estadoInfo.color },
                 ]}
               >
-                <Icon name={estadoInfo.icon} size={14} color="#fff" />
+                <MaterialIcons name={estadoInfo.icon} size={14} color="#fff" />
                 <Text style={styles.estadoBadgeText}>{estadoInfo.label}</Text>
               </View>
             </View>
             <TouchableOpacity onPress={onClose} style={styles.closeButton}>
-              <Icon name="close" size={24} color="#5d6d7e" />
+              <MaterialIcons name="close" size={24} color="#5d6d7e" />
             </TouchableOpacity>
           </View>
 
@@ -127,7 +127,7 @@ const ModalDetallesDocente = ({
                 onPress={handleEmailPress}
                 style={styles.emailContainer}
               >
-                <Icon name="email" size={16} color="#3498db" />
+                <MaterialIcons name="email" size={16} color="#3498db" />
                 <Text style={styles.emailText}>
                   {docente.correo_institucional}
                 </Text>
@@ -139,7 +139,7 @@ const ModalDetallesDocente = ({
               <Text style={styles.sectionTitle}>Información Personal</Text>
 
               <View style={styles.infoRow}>
-                <Icon
+                <MaterialIcons
                   name="person"
                   size={18}
                   color="#7f8c8d"
@@ -154,7 +154,7 @@ const ModalDetallesDocente = ({
               </View>
 
               <View style={styles.infoRow}>
-                <Icon
+                <MaterialIcons
                   name="cake"
                   size={18}
                   color="#7f8c8d"
@@ -173,7 +173,7 @@ const ModalDetallesDocente = ({
               <Text style={styles.sectionTitle}>Información Laboral</Text>
 
               <View style={styles.infoRow}>
-                <Icon
+                <MaterialIcons
                   name="work"
                   size={18}
                   color="#7f8c8d"
@@ -186,7 +186,7 @@ const ModalDetallesDocente = ({
               </View>
 
               <View style={styles.infoRow}>
-                <Icon
+                <MaterialIcons
                   name="people"
                   size={18}
                   color="#7f8c8d"
@@ -201,7 +201,7 @@ const ModalDetallesDocente = ({
               </View>
 
               <View style={styles.infoRow}>
-                <Icon
+                <MaterialIcons
                   name="school"
                   size={18}
                   color="#7f8c8d"
@@ -227,7 +227,11 @@ const ModalDetallesDocente = ({
                   {docente.DIAS_CUMPLEANOS &&
                     docente.DIAS_CUMPLEANOS.length > 0 && (
                       <View style={styles.statItem}>
-                        <Icon name="celebration" size={20} color="#9b59b6" />
+                        <MaterialIcons
+                          name="celebration"
+                          size={20}
+                          color="#9b59b6"
+                        />
                         <Text style={styles.statNumber}>
                           {docente.DIAS_CUMPLEANOS.length}
                         </Text>
@@ -238,7 +242,11 @@ const ModalDetallesDocente = ({
                   {docente.DIAS_ECONOMICOS &&
                     docente.DIAS_ECONOMICOS.length > 0 && (
                       <View style={styles.statItem}>
-                        <Icon name="attach-money" size={20} color="#2ecc71" />
+                        <MaterialIcons
+                          name="attach-money"
+                          size={20}
+                          color="#2ecc71"
+                        />
                         <Text style={styles.statNumber}>
                           {docente.DIAS_ECONOMICOS.length}
                         </Text>
@@ -248,7 +256,7 @@ const ModalDetallesDocente = ({
 
                   {docente.INCIDENCIAS && docente.INCIDENCIAS.length > 0 && (
                     <View style={styles.statItem}>
-                      <Icon name="warning" size={20} color="#e74c3c" />
+                      <MaterialIcons name="warning" size={20} color="#e74c3c" />
                       <Text style={styles.statNumber}>
                         {docente.INCIDENCIAS.length}
                       </Text>
@@ -266,7 +274,7 @@ const ModalDetallesDocente = ({
               style={[styles.footerButton, styles.desactivarButton]}
               onPress={handleDesactivarPress}
             >
-              <Icon
+              <MaterialIcons
                 name={
                   docente.estado?.toLowerCase() === "activo"
                     ? "block"
@@ -303,7 +311,7 @@ const ModalDetallesDocente = ({
                 onClose();
               }}
             >
-              <Icon name="edit" size={20} color="#3498db" />
+              <MaterialIcons name="edit" size={20} color="#3498db" />
               <Text style={[styles.footerButtonText, { color: "#3498db" }]}>
                 Editar
               </Text>

@@ -9,7 +9,8 @@ import {
   TextInput,
   Alert,
 } from "react-native";
-import Icon from "react-native-vector-icons/MaterialIcons";
+
+import { MaterialIcons } from "@expo/vector-icons";
 
 const ModalDetallesIncidencia = ({
   visible,
@@ -94,10 +95,10 @@ const ModalDetallesIncidencia = ({
         <View style={styles.container}>
           {/* Encabezado */}
           <View style={styles.header}>
-            <Icon name="info" size={24} color="#3498db" />
+            <MaterialIcons name="info" size={24} color="#3498db" />
             <Text style={styles.title}>Detalles de Incidencia</Text>
             <TouchableOpacity onPress={onClose}>
-              <Icon name="close" size={24} color="#666" />
+              <MaterialIcons name="close" size={24} color="#666" />
             </TouchableOpacity>
           </View>
 
@@ -201,7 +202,7 @@ const ModalDetallesIncidencia = ({
                   <Text style={styles.toggleAccionesText}>
                     {showAcciones ? "Ocultar acciones" : "Mostrar acciones"}
                   </Text>
-                  <Icon
+                  <MaterialIcons
                     name={
                       showAcciones ? "keyboard-arrow-up" : "keyboard-arrow-down"
                     }
@@ -244,7 +245,7 @@ const ModalDetallesIncidencia = ({
                     style={[styles.button, styles.rejectButton]}
                     onPress={handleRechazar}
                   >
-                    <Icon name="cancel" size={18} color="#fff" />
+                    <MaterialIcons name="cancel" size={18} color="#fff" />
                     <Text style={styles.rejectText}>Rechazar</Text>
                   </TouchableOpacity>
 
@@ -252,7 +253,7 @@ const ModalDetallesIncidencia = ({
                     style={[styles.button, styles.approveButton]}
                     onPress={handleAprobar}
                   >
-                    <Icon name="check-circle" size={18} color="#fff" />
+                    <MaterialIcons name="check-circle" size={18} color="#fff" />
                     <Text style={styles.approveText}>Aprobar</Text>
                   </TouchableOpacity>
                 </>

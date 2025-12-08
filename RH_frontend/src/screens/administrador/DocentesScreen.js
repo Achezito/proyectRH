@@ -18,7 +18,7 @@ import {
   Dimensions,
 } from "react-native";
 import { Picker } from "@react-native-picker/picker";
-import Icon from "react-native-vector-icons/MaterialIcons";
+import { MaterialIcons } from "@expo/vector-icons";
 
 import DocenteCard from "../../components/docenteCard";
 import { useFocusEffect, useNavigation } from "@react-navigation/native";
@@ -571,7 +571,12 @@ const DocentesScreen = () => {
   const renderHeader = () => (
     <Animated.View style={[styles.headerContainer, { height: headerHeight }]}>
       <View style={styles.searchContainer}>
-        <Icon name="search" size={20} color="#666" style={styles.searchIcon} />
+        <MaterialIcons
+          name="search"
+          size={20}
+          color="#666"
+          style={styles.searchIcon}
+        />
         <TextInput
           ref={searchInputRef}
           style={styles.searchInput}
@@ -589,7 +594,7 @@ const DocentesScreen = () => {
             }}
             style={styles.clearButton}
           >
-            <Icon name="close" size={20} color="#666" />
+            <MaterialIcons name="close" size={20} color="#666" />
           </TouchableOpacity>
         ) : null}
       </View>
@@ -639,7 +644,7 @@ const DocentesScreen = () => {
                     cargarDocentes(1, true);
                   }}
                 >
-                  <Icon name="close" size={14} color="#fff" />
+                  <MaterialIcons name="close" size={14} color="#fff" />
                 </TouchableOpacity>
               </View>
             )}
@@ -655,7 +660,7 @@ const DocentesScreen = () => {
                     cargarDocentes(1, true);
                   }}
                 >
-                  <Icon name="close" size={14} color="#fff" />
+                  <MaterialIcons name="close" size={14} color="#fff" />
                 </TouchableOpacity>
               </View>
             )}
@@ -669,7 +674,7 @@ const DocentesScreen = () => {
                     cargarDocentes(1, true);
                   }}
                 >
-                  <Icon name="close" size={14} color="#fff" />
+                  <MaterialIcons name="close" size={14} color="#fff" />
                 </TouchableOpacity>
               </View>
             )}
@@ -683,7 +688,7 @@ const DocentesScreen = () => {
                     cargarDocentes(1, true);
                   }}
                 >
-                  <Icon name="close" size={14} color="#fff" />
+                  <MaterialIcons name="close" size={14} color="#fff" />
                 </TouchableOpacity>
               </View>
             )}
@@ -717,7 +722,7 @@ const DocentesScreen = () => {
   // Renderizar estado vacío
   const renderEmptyState = () => (
     <View style={styles.emptyContainer}>
-      <Icon name="people-outline" size={80} color="#bdc3c7" />
+      <MaterialIcons name="people-outline" size={80} color="#bdc3c7" />
       <Text style={styles.emptyTitle}>
         {searchText || Object.values(filtros).some((f) => f)
           ? "No hay resultados"
@@ -730,7 +735,7 @@ const DocentesScreen = () => {
       </Text>
       {(searchText || Object.values(filtros).some((f) => f)) && (
         <TouchableOpacity style={styles.limpiarBtn} onPress={limpiarFiltros}>
-          <Icon name="filter-alt-off" size={20} color="#fff" />
+          <MaterialIcons name="filter-alt-off" size={20} color="#fff" />
           <Text style={styles.limpiarBtnText}>Limpiar filtros</Text>
         </TouchableOpacity>
       )}
@@ -739,7 +744,7 @@ const DocentesScreen = () => {
           style={styles.addEmptyBtn}
           onPress={() => navigation.navigate("NuevoDocente")}
         >
-          <Icon name="person-add" size={20} color="#fff" />
+          <MaterialIcons name="person-add" size={20} color="#fff" />
           <Text style={styles.addEmptyBtnText}>Agregar primer docente</Text>
         </TouchableOpacity>
       )}
@@ -771,7 +776,7 @@ const DocentesScreen = () => {
           style={styles.filterBtn}
           onPress={() => setShowFilters(true)}
         >
-          <Icon name="filter-list" size={20} color="#3498db" />
+          <MaterialIcons name="filter-list" size={20} color="#3498db" />
           <Text style={styles.filterBtnText}>Filtros</Text>
           {(filtros.tipo_contrato ||
             filtros.tipo_colaborador ||
@@ -793,7 +798,7 @@ const DocentesScreen = () => {
           {exporting ? (
             <ActivityIndicator size="small" color="#27ae60" />
           ) : (
-            <Icon name="download" size={20} color="#27ae60" />
+            <MaterialIcons name="download" size={20} color="#27ae60" />
           )}
           <Text style={[styles.exportBtnText, exporting && { opacity: 0.7 }]}>
             {exporting ? "Exportando..." : "Exportar"}
@@ -804,7 +809,7 @@ const DocentesScreen = () => {
           style={styles.addBtn}
           onPress={() => navigation.navigate("NuevoDocente")}
         >
-          <Icon name="person-add" size={20} color="#fff" />
+          <MaterialIcons name="person-add" size={20} color="#fff" />
           <Text style={styles.addBtnText}>Nuevo</Text>
         </TouchableOpacity>
       </View>

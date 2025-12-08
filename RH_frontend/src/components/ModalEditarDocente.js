@@ -11,7 +11,7 @@ import {
   Platform,
   ActivityIndicator,
 } from "react-native";
-import Icon from "react-native-vector-icons/MaterialIcons";
+import { MaterialIcons } from "@expo/vector-icons";
 import { Picker } from "@react-native-picker/picker";
 import DatePickerModal from "./datepickermodal"; // Importar el componente
 
@@ -154,7 +154,7 @@ const ModalEditarDocente = ({
           <View style={styles.modalHeader}>
             <Text style={styles.modalTitle}>Editar Docente</Text>
             <TouchableOpacity onPress={onClose} style={styles.closeButton}>
-              <Icon name="close" size={24} color="#5d6d7e" />
+              <MaterialIcons name="close" size={24} color="#5d6d7e" />
             </TouchableOpacity>
           </View>
 
@@ -221,7 +221,11 @@ const ModalEditarDocente = ({
                   style={styles.dateButton}
                   onPress={() => setShowDatePicker(true)}
                 >
-                  <Icon name="calendar-today" size={20} color="#3498db" />
+                  <MaterialIcons
+                    name="calendar-today"
+                    size={20}
+                    color="#3498db"
+                  />
                   <Text style={styles.dateButtonText}>
                     {formatDate(formData.cumpleaños)}
                   </Text>
@@ -323,7 +327,7 @@ const ModalEditarDocente = ({
               onPress={handleDesactivarPress}
               disabled={loading}
             >
-              <Icon
+              <MaterialIcons
                 name={
                   formData.estado?.toLowerCase() === "activo"
                     ? "block"
@@ -358,7 +362,7 @@ const ModalEditarDocente = ({
               onPress={onClose}
               disabled={loading}
             >
-              <Icon name="cancel" size={20} color="#7f8c8d" />
+              <MaterialIcons name="cancel" size={20} color="#7f8c8d" />
               <Text style={[styles.footerButtonText, { color: "#7f8c8d" }]}>
                 Cancelar
               </Text>
@@ -373,7 +377,7 @@ const ModalEditarDocente = ({
                 <ActivityIndicator size="small" color="#fff" />
               ) : (
                 <>
-                  <Icon name="save" size={20} color="#fff" />
+                  <MaterialIcons name="save" size={20} color="#fff" />
                   <Text style={[styles.footerButtonText, { color: "#fff" }]}>
                     Guardar
                   </Text>
